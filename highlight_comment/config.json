@@ -1,0 +1,20 @@
+{
+  "platforms": {
+    "VK": {
+      "access_key": "",
+      "secret_key": ""
+    },
+    "YOUTUBE": {
+      "access_key": "",
+      "secret_key": ""
+    },
+    "TELEGRAM": {
+      "access_key": "",
+      "secret_key": ""
+    }
+  },
+  "sources": "",
+  "responds": ""
+}
+
+
