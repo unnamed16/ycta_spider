@@ -5,7 +5,7 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
 import datetime as dt
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict
 from enum import Enum
 from dataclasses import dataclass
 import json
@@ -13,9 +13,26 @@ from dateutil.parser import isoparse
 
 import requests
 
-from highlight_comment.api.shell import Shell as CommonShell, Comments
+from highlight_comment.api.shell import Shell as CommonShell, Comments, Response
 from highlight_comment.api.shell import PlatformType, ResponseCode
 from highlight_comment.api.shell import SourceUri, CommentsResponse
+
+
+class SearchOrder(Enum):
+    DATE = 'date'
+    RATING = 'rating'
+    RELEVANCE = 'relevance'
+    TITLE = 'title'
+    VIDEO_COUNT = 'videoCount'
+    VIEW_COUNT = 'viewCount'
+
+
+@dataclass
+class VideoData:
+    videoId: str
+    publishedAt: dt.datetime
+    title: str
+    description: str
 
 
 class Shell(CommonShell):
@@ -28,21 +45,6 @@ class Shell(CommonShell):
     __SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl"
     __REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
     __TOKEN_URL = "https://www.googleapis.com/oauth2/v4/token"
-
-    class SearchOrder(Enum):
-        DATE = 'date'
-        RATING = 'rating'
-        RELEVANCE = 'relevance'
-        TITLE = 'title'
-        VIDEO_COUNT = 'videoCount'
-        VIEW_COUNT = 'viewCount'
-
-    @dataclass
-    class VideoData:
-        videoId: str
-        publishedAt: dt.datetime
-        title: str
-        description: str
 
     def __init__(self):
         super().__init__()
@@ -58,7 +60,7 @@ class Shell(CommonShell):
         comments = requests.get(query, headers=self.common_headers)
         return Shell.__parse(comments, Shell.__parse_comments)
 
-    def add_comment(self, source: SourceUri, comment: str) -> CommentsResponse:
+    def add_comment(self, source: SourceUri, comment: str) -> Response[Any]:
         func = 'commentThreads'
         part = 'snippet'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
@@ -83,7 +85,7 @@ class Shell(CommonShell):
         return comments
 
     @staticmethod
-    def __parse(r: requests.Response, parser: Callable) -> CommentsResponse:
+    def __parse(r: requests.Response, parser: Callable) -> Response[Any]:
         try:
             js = r.json()
             parsed = {
@@ -132,7 +134,7 @@ class Shell(CommonShell):
         json_content = json.loads(req.text)
         video_list = []
         for json_elem in json_content['items']:
-            video_list.append(self.VideoData(
+            video_list.append(VideoData(
                 videoId=json_elem['id']['videoId'],
                 publishedAt=isoparse(json_elem['snippet']['publishedAt']),
                 title=json_elem['snippet']['title'],
