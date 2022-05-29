@@ -4,7 +4,7 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import requests
 
@@ -14,6 +14,8 @@ from highlight_comment.api.shell import SourceUri, CommentsResponse
 
 
 class Shell(CommonShell):
+    _CHID_OFFSET_FROM = 13
+    _CHID_OFFSET_TO = 37
 
     def __init__(self):
         super().__init__()
@@ -71,3 +73,17 @@ class Shell(CommonShell):
                 'message': str(e),
                 'response.text': r.text
             }
+
+    @classmethod
+    def get_channel_id(cls, channel: str) -> Optional[str]:
+        url = f'https://www.youtube.com/c/{channel}'
+        req = requests.get(url, 'html.parser')
+        if req.status_code != 200:
+            print(f'Failed to parse {url}')
+            return None
+        text = req.text
+        loc = text.find('externalId')
+        if loc == -1:
+            print(f'Failed to find key identifier (externalId) on {channel}')
+            return None
+        return text[loc + cls._CHID_OFFSET_FROM: loc + cls._CHID_OFFSET_TO]
