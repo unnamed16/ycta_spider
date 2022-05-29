@@ -16,7 +16,7 @@ class YoutubeShellTestCase(TestCase):
         shell = Shell()
         self.assertEqual(PlatformType.YOUTUBE, shell.platform_type)
 
-    def test_channel_id(self) -> None:
+    def test_get_channel_id(self) -> None:
         self.assertEquals('UCjWy2g76QZf7QLEwx4cB46g', Shell.get_channel_id('arestovych')['result'])
         self.assertEquals(ResponseCode.ERROR, Shell.get_channel_id('NonExistantChannel')['code'])
 
@@ -25,10 +25,19 @@ class YoutubeShellTestCase(TestCase):
         query = shell.get_comments('videoId=Zd1a7qLqqOY')
         self.assertEqual(ResponseCode.OK, query['code'])
         self.assertIn('result', query)
-        self.assertLessEqual(14, len(query['result']))
+        self.assertLessEqual(4, len(query['result']))
 
     def test_add_comments(self) -> None:
         shell = Shell()
         query = shell.add_comment('videoId=MILSirUni5E', 'test')
+        self.assertEqual(ResponseCode.OK, query['code'])
+        self.assertIn('result', query)
+
+    def test_get_video_ids(self) -> None:
+        shell = Shell()
+        channel_id = 'UCBVjMGOIkavEAhyqpxJ73Dw'
+        max_results = 10
+        order = shell.SearchOrder.DATE
+        query = shell.get_video_ids(channel_id, max_results, order)
         self.assertEqual(ResponseCode.OK, query['code'])
         self.assertIn('result', query)
