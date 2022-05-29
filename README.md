@@ -165,26 +165,7 @@ ___
 ### Service User:
 
 - Ask owner to be marked as test user on OAuth 2.0.
-- As of right now, client secret file belongs to the owner. Run the following lines (Linux-specific):
-```bash
-export CLIENT_ID=462864845006-vb4h8144a0jdkee7810bvluov1nrnoip.apps.googleusercontent.com
-export CLIENT_SECRET=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
-export SCOPE=https://www.googleapis.com/auth/youtube.force-ssl
-export ENDPOINT=https://accounts.google.com/o/oauth2/v2/auth
-export URL="$ENDPOINT?client_id=$CLIENT_ID&response_type=code&scope=$SCOPE&access_type=offline&redirect_uri=urn:ietf:wg:oauth:2.0:oob"
-echo $URL
-```
-- The last line will output a link, navigate to it, allow everything, copy the authorization code.
-```bash
-export AUTHORIZATION_CODE=[INPUT HERE]
-```
-- Use the following lines to obtain access token (only active for 1h):
-```bash
-curl \
---data client_id=$CLIENT_ID \
---data client_secret=$CLIENT_SECRET \
---data code=$AUTHORIZATION_CODE \
---data redirect_uri=urn:ietf:wg:oauth:2.0:oob \
---data grant_type=authorization_code \
-https://www.googleapis.com/oauth2/v4/token
-```
+- As of right now, client secret file belongs to the owner. 
+Run the ```api.youtube.shell.Shell.get_authorization_link```
+- It will return a link, navigate to it, allow everything, copy the authorization code.
+- Use ```api.youtube.shell.Shell.get_access_token``` to obtain access token (only active for 1h):

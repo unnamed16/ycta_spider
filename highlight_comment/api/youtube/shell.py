@@ -20,37 +20,36 @@ class Shell(CommonShell):
     def __init__(self):
         super().__init__()
         self.__platform_type = PlatformType.YOUTUBE
-        self.__host = 'https://www.googleapis.com/youtube/v3/'
+        self.__url = 'https://www.googleapis.com/youtube/v3/'
         platform_config = self.config['platforms'][self.platform_type.name]
         self.__api_key = platform_config['api_key']
         self.__access_token = platform_config['access_token']
-        self.__headers = dict(self.common_headers)
 
     def get_comments(self, source: SourceUri) -> CommentsResponse:
-        url = 'commentThreads'
+        func = 'commentThreads'
         part = 'part=snippet,replies'
-        q = f'{self.__host}{url}?{part}&{source}&key={self.__api_key}'
-        comments = requests.get(q, headers=self.__headers)
+        query = f'{self.__url}{func}?{part}&{source}&key={self.__api_key}'
+        comments = requests.get(query, headers=self.common_headers)
         return Shell.__parse(comments, Shell.__parse_comments)
 
-    def add_comment(self, source: SourceUri, comment: str) -> CommentsResponse:
-        url = 'commentThreads'
+    def add_comment(self, source: SourceUri, comment: str) -> ResponseCode:
+        func = 'commentThreads'
         part = 'part=snippet'
-        q = f'{self.__host}{url}?{part}&{source}&key={self.__api_key}'
-        headers = dict(self.__headers)
+        query = f'{self.__url}{func}?{part}&{source}&key={self.__api_key}'
+        headers = dict(self.common_headers)
+        headers['Authorization'] = f'Bearer {self.__access_token}'
         data = {
             "snippet": {
                 "channelId": self.config['platforms'][self.platform_type.name]['channel_id'],
                 "topLevelComment": {
                     "snippet": {
-                        "textOriginal": f"{comment}"
+                        "textOriginal": comment
                     }
                 },
                 "videoId": "i2FGXF540pU"
             }
         }
-        headers['Authorization'] = f'Bearer {self.__access_token}'
-        comments = requests.post(q, headers=headers, data=data)
+        comments = requests.post(query, headers=headers, data=data)
         return Shell.__parse(comments, Shell.__parse_comments)
 
     @staticmethod
@@ -73,6 +72,26 @@ class Shell(CommonShell):
                 'message': str(e),
                 'response.text': r.text
             }
+
+    @staticmethod
+    def get_authorization_link() -> str:
+        return \
+            "https://accounts.google.com/o/oauth2/v2/auth?" \
+            "client_id=462864845006-vb4h8144a0jdkee7810bvluov1nrnoip.apps.googleusercontent.com&response_type=code&" \
+            "scope=https://www.googleapis.com/auth/youtube.force-ssl&" \
+            "access_type=offline&" \
+            "redirect_uri=urn:ietf:wg:oauth:2.0:oob"
+
+    @staticmethod
+    def get_access_token(authorization_code: str) -> str:
+        access_token = requests.post("https://www.googleapis.com/oauth2/v4/token", data={
+            "client_id": "462864845006-vb4h8144a0jdkee7810bvluov1nrnoip.apps.googleusercontent.com",
+            "client_secret": "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",
+            "code": authorization_code,
+            "redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
+            "grant_type": "authorization_code"
+        })
+        return access_token.text
 
     @classmethod
     def get_channel_id(cls, channel: str) -> Dict[str, Any]:

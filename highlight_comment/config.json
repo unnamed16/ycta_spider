@@ -1,12 +1,12 @@
 {
   "platforms": {
     "VK": {
-      "access_key": "",
-      "secret_key": ""
+      "api_key": "",
+      "access_token": ""
     },
     "YOUTUBE": {
-      "access_key": "",
-      "secret_key": ""
+      "api_key": "",
+      "access_token": ""
     },
     "TELEGRAM": {
       "access_key": "",
