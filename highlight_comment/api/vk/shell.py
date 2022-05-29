@@ -17,7 +17,7 @@ class Shell(CommonShell):
 
     def __init__(self):
         super().__init__()
-        self.__stock_type = PlatformType.VK
+        self.__platform_type = PlatformType.VK
         # todo: change url
         self.host = 'https://developers.google.com/apis-explorer/#p/youtube/v3/'
         self.access_key = self.config['platforms'][self.platform_type.name]['access_key']
