@@ -70,3 +70,23 @@ class Shell(CommonShell):
                 'message': str(e),
                 'response.text': r.text
             }
+
+    @staticmethod
+    def get_authorization_link() -> str:
+        return \
+            "https://accounts.google.com/o/oauth2/v2/auth?" \
+            "client_id=462864845006-vb4h8144a0jdkee7810bvluov1nrnoip.apps.googleusercontent.com&response_type=code&" \
+            "scope=https://www.googleapis.com/auth/youtube.force-ssl&" \
+            "access_type=offline&" \
+            "redirect_uri=urn:ietf:wg:oauth:2.0:oob"
+
+    @staticmethod
+    def get_access_token(authorization_code: str) -> str:
+        access_token = requests.post("https://www.googleapis.com/oauth2/v4/token", data={
+            "client_id": "462864845006-vb4h8144a0jdkee7810bvluov1nrnoip.apps.googleusercontent.com",
+            "client_secret": "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",
+            "code": authorization_code,
+            "redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
+            "grant_type": "authorization_code"
+        })
+        return access_token.text
