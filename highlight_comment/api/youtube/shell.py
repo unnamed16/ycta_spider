@@ -33,18 +33,17 @@ class Shell(CommonShell):
     def add_comment(self, source: SourceUri, comment: str) -> ResponseCode:
         func = 'commentThreads'
         part = 'part=snippet'
-        query = f'{self.__url}{func}?{part}&{source}&key={self.__api_key}'
+        query = f'{self.__url}{func}?{part}&key={self.__api_key}'
         headers = dict(self.common_headers)
         headers['Authorization'] = f'Bearer {self.__access_token}'
         data = {
             "snippet": {
-                "channelId": self.config['platforms'][self.platform_type.name]['channel_id'],
                 "topLevelComment": {
                     "snippet": {
                         "textOriginal": comment
                     }
                 },
-                "videoId": "i2FGXF540pU"
+                "videoId": source
             }
         }
         comments = requests.post(query, headers=headers, data=data)

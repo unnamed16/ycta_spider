@@ -154,7 +154,7 @@ ___
 
 ---
 
-#### Youtube access (temporary solution)
+#### YouTube access (temporary solution)
 
 ### Service Owner:
 
