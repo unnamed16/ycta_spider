@@ -33,7 +33,10 @@ CommentsResponse = Dict[str, Union[ResponseCode, Comments]]
 class Shell:
 
     def __init__(self):
-        self.common_headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+        self.common_headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
         self.config = read_config()
         self.__platform_type = None
 

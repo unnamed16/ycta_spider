@@ -20,8 +20,8 @@ class Shell(CommonShell):
         self.__stock_type = PlatformType.TELEGRAM
         # todo: change url
         self.host = 'https://developers.google.com/apis-explorer/#p/youtube/v3/'
-        self.access_key = self.config['stocks'][self.platform_type.name]['access_key']
-        self.secret_key = self.config['stocks'][self.platform_type.name]['secret_key']
+        self.access_key = self.config['platforms'][self.platform_type.name]['access_key']
+        self.secret_key = self.config['platforms'][self.platform_type.name]['secret_key']
 
     def get_comments(self, source: SourceUri) -> CommentsResponse:
         # todo: change url

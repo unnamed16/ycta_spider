@@ -22,3 +22,16 @@ class CommonShellTestCase(TestCase):
             for comment in query['result']:
                 self.assertEqual(Comment, type(comment))
         print('\r', end='')
+
+    def test_add_comment(self) -> None:
+        for platform_type in PlatformType:
+            if platform_type is not PlatformType.YOUTUBE:
+                continue
+            print(f'\r{platform_type}', end='')
+            shell = build.shell(platform_type)
+            query = shell.add_comment('videoId=Zd1a7qLqqOY', 'Ааааха ресурс )))')
+            self.assertEqual(ResponseCode.OK, query['code'])
+            self.assertIn('result', query)
+            for comment in query['result']:
+                self.assertEqual(Comment, type(comment))
+        print('\r', end='')

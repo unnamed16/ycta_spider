@@ -17,15 +17,38 @@ class Shell(CommonShell):
 
     def __init__(self):
         super().__init__()
-        self.__stock_type = PlatformType.YOUTUBE
-        self.host = 'https://developers.google.com/apis-explorer/#p/youtube/v3/'
-        self.access_key = self.config['stocks'][self.platform_type.name]['access_key']
-        self.secret_key = self.config['stocks'][self.platform_type.name]['secret_key']
+        self.__platform_type = PlatformType.YOUTUBE
+        self.__host = 'https://www.googleapis.com/youtube/v3/'
+        platform_config = self.config['platforms'][self.platform_type.name]
+        self.__api_key = platform_config['api_key']
+        self.__access_token = platform_config['access_token']
+        self.__headers = dict(self.common_headers)
 
     def get_comments(self, source: SourceUri) -> CommentsResponse:
-        url = 'youtube.commentThreads.list'
+        url = 'commentThreads'
         part = 'part=snippet,replies'
-        comments = requests.get(f'{self.host}{url}?{part}&{source}')
+        q = f'{self.__host}{url}?{part}&{source}&key={self.__api_key}'
+        comments = requests.get(q, headers=self.__headers)
+        return Shell.__parse(comments, Shell.__parse_comments)
+
+    def add_comment(self, source: SourceUri, comment: str) -> ResponseCode:
+        url = 'commentThreads'
+        part = 'part=snippet'
+        q = f'{self.__host}{url}?{part}&{source}&key={self.__api_key}'
+        headers = dict(self.__headers)
+        data = {
+            "snippet": {
+                "channelId": self.config['platforms'][self.platform_type.name]['channel_id'],
+                "topLevelComment": {
+                    "snippet": {
+                        "textOriginal": f"{comment}"
+                    }
+                },
+                "videoId": "i2FGXF540pU"
+            }
+        }
+        headers['Authorization'] = f'Bearer {self.__access_token}'
+        comments = requests.post(q, headers=headers, data=data)
         return Shell.__parse(comments, Shell.__parse_comments)
 
     @staticmethod
