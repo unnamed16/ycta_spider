@@ -49,9 +49,9 @@ class Shell(CommonShell):
         self.__platform_type = PlatformType.YOUTUBE
         platform_config = self.config['platforms'][self.platform_type.name]
         self.__api_key = platform_config['api_key']
-        self.__access_token = platform_config['access_token']
         self.__client_id = platform_config['client_id']
         self.__client_secret = platform_config['client_secret']
+        self.__access_token = platform_config['access_token']
 
     def get_comments(self, source: SourceUri) -> Response:
         func = 'commentThreads'
