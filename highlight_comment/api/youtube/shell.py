@@ -38,8 +38,6 @@ class VideoData:
 class Shell(CommonShell):
     __CHID_OFFSET_FROM = 13
     __CHID_OFFSET_TO = 37
-    __CLIENT_ID = "462864845006-vb4h8144a0jdkee7810bvluov1nrnoip.apps.googleusercontent.com"
-    __CLIENT_SECRET = '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'
     __V3_URL = 'https://www.googleapis.com/youtube/v3/'
     __OAUTH2_URL = "https://accounts.google.com/o/oauth2/v2/auth"
     __SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl"
@@ -52,6 +50,8 @@ class Shell(CommonShell):
         platform_config = self.config['platforms'][self.platform_type.name]
         self.__api_key = platform_config['api_key']
         self.__access_token = platform_config['access_token']
+        self.__client_id = platform_config['client_id']
+        self.__client_secret = platform_config['client_secret']
 
     def get_comments(self, source: SourceUri) -> Response[Comments]:
         func = 'commentThreads'
@@ -118,23 +118,21 @@ class Shell(CommonShell):
                 'response.text': r.text
             }
 
-    @classmethod
-    def get_authorization_link(cls) -> str:
+    def get_authorization_link(self) -> str:
         return str(
-            f"{cls.__OAUTH2_URL}?"
-            f"client_id={cls.__CLIENT_ID}&"
+            f"{self.__OAUTH2_URL}?"
+            f"client_id={self.__client_id}&"
             f"response_type=code&"
-            f"scope={cls.__SCOPE}&"
-            f"access_type=offline&redirect_uri={cls.__REDIRECT_URI}"
+            f"scope={self.__SCOPE}&"
+            f"access_type=offline&redirect_uri={self.__REDIRECT_URI}"
         )
 
-    @classmethod
-    def get_access_token(cls, authorization_code: str) -> Dict[str, str]:
-        access_token = requests.post(cls.__TOKEN_URL, data={
-            "client_id": cls.__CLIENT_ID,
-            "client_secret": cls.__CLIENT_SECRET,
+    def get_access_token(self, authorization_code: str) -> Dict[str, str]:
+        access_token = requests.post(self.__TOKEN_URL, data={
+            "client_id": self.__client_id,
+            "client_secret": self.__client_secret,
             "code": authorization_code,
-            "redirect_uri": cls.__REDIRECT_URI,
+            "redirect_uri": self.__REDIRECT_URI,
             "grant_type": "authorization_code"
         })
         return json.loads(access_token.text)
