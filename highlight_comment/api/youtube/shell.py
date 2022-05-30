@@ -5,7 +5,7 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
 import datetime as dt
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List
 from enum import Enum
 from dataclasses import dataclass
 import json
@@ -13,9 +13,9 @@ from dateutil.parser import isoparse
 
 import requests
 
-from highlight_comment.api.shell import Shell as CommonShell, Comments, Response
+from highlight_comment.api.shell import Shell as CommonShell
 from highlight_comment.api.shell import PlatformType, ResponseCode
-from highlight_comment.api.shell import SourceUri, CommentsResponse
+from highlight_comment.api.shell import SourceUri, Response, Comments, Comment
 
 
 class SearchOrder(Enum):
@@ -53,14 +53,14 @@ class Shell(CommonShell):
         self.__api_key = platform_config['api_key']
         self.__access_token = platform_config['access_token']
 
-    def get_comments(self, source: SourceUri) -> CommentsResponse:
+    def get_comments(self, source: SourceUri) -> Response[Comments]:
         func = 'commentThreads'
         part = 'snippet,replies'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
         comments = requests.get(query, headers=self.common_headers)
         return Shell.__parse(comments, Shell.__parse_comments)
 
-    def add_comment(self, source: SourceUri, comment: str) -> Response[Any]:
+    def add_comment(self, source: SourceUri, comment: str) -> Response[Comment]:
         func = 'commentThreads'
         part = 'snippet'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
@@ -80,34 +80,56 @@ class Shell(CommonShell):
         return Shell.__parse(comments, Shell.__parse_comments)
 
     @staticmethod
-    def __parse_comments(comments) -> Comments:
+    def __parse_comments(response_json: Dict) -> Comments:
         # todo: finish parser
-        return comments
+        return response_json
+
+    @staticmethod
+    def __parse_video_ids(response_json: Dict) -> List[VideoData]:
+        return [
+            VideoData(
+                videoId=json_elem['id']['videoId'],
+                publishedAt=isoparse(json_elem['snippet']['publishedAt']),
+                title=json_elem['snippet']['title'],
+                description=json_elem['snippet']['description']
+            )
+            for json_elem in response_json['items']
+        ]
 
     @staticmethod
     def __parse(r: requests.Response, parser: Callable) -> Response[Any]:
+        if not r.ok:
+            return {
+                'code': ResponseCode.ERROR,
+                'response.status_code': str(r.status_code),
+                'response.reason': r.reason
+            }
         try:
             js = r.json()
             parsed = {
-                'result': parser(js),
-                'code': ResponseCode.OK
+                'code': ResponseCode.OK,
+                'result': parser(js)
             }
             return parsed
         except Exception as e:
             return {
-                'code': ResponseCode.ERROR,
+                'code': ResponseCode.PARSE_ERROR,
                 'message': str(e),
                 'response.text': r.text
             }
 
     @classmethod
     def get_authorization_link(cls) -> str:
-        return \
-            f"{cls.__OAUTH2_URL}?client_id={cls.__CLIENT_ID}&response_type=code&scope={cls.__SCOPE}&" \
+        return str(
+            f"{cls.__OAUTH2_URL}?"
+            f"client_id={cls.__CLIENT_ID}&"
+            f"response_type=code&"
+            f"scope={cls.__SCOPE}&"
             f"access_type=offline&redirect_uri={cls.__REDIRECT_URI}"
+        )
 
     @classmethod
-    def get_access_token(cls, authorization_code: str) -> Dict:
+    def get_access_token(cls, authorization_code: str) -> Dict[str, str]:
         access_token = requests.post(cls.__TOKEN_URL, data={
             "client_id": cls.__CLIENT_ID,
             "client_secret": cls.__CLIENT_SECRET,
@@ -117,33 +139,27 @@ class Shell(CommonShell):
         })
         return json.loads(access_token.text)
 
-    def get_video_ids(self, channel_id: str, max_results: int, order: SearchOrder) -> Dict[str, Any]:
+    def get_video_ids(self, channel_id: str, max_results: int, order: SearchOrder) -> Response[List[VideoData]]:
         part = 'snippet'
         content_type = 'video'
         func = 'search'
-        url = f'{self.__V3_URL}{func}?part={part}&channelId={channel_id}&maxResults={max_results}&' \
-              f'order={order.value}&type={content_type}&key={self.__api_key}'
+        url = str(
+            f'{self.__V3_URL}{func}?'
+            f'part={part}&'
+            f'channelId={channel_id}&'
+            f'maxResults={max_results}&'
+            f'order={order.value}&'
+            f'type={content_type}&'
+            f'key={self.__api_key}'
+        )
         req = requests.get(url)
-        if not req.ok:
-            return {
-                'code': ResponseCode.ERROR,
-                'message': f'failed to find videos on {channel_id}',
-                'response.status_code': str(req.status_code),
-                'response.reason': req.reason
-            }
-        json_content = json.loads(req.text)
-        video_list = []
-        for json_elem in json_content['items']:
-            video_list.append(VideoData(
-                videoId=json_elem['id']['videoId'],
-                publishedAt=isoparse(json_elem['snippet']['publishedAt']),
-                title=json_elem['snippet']['title'],
-                description=json_elem['snippet']['description']
-            ))
-        return {'code': ResponseCode.OK, 'result': video_list}
+        result = Shell.__parse(req, Shell.__parse_video_ids)
+        if result['code'] == ResponseCode.ERROR:
+            result['message'] = f'failed to find videos on {channel_id}'
+        return result
 
     @classmethod
-    def get_channel_id(cls, channel: str) -> Dict[str, Any]:
+    def get_channel_id(cls, channel: str) -> Response[str]:
         url = f'https://www.youtube.com/c/{channel}'
         req = requests.get(url, 'html.parser')
         if not req.ok:
