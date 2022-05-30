@@ -5,7 +5,7 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
 from enum import Enum
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Any
 
 from highlight_comment.file_manager.reader import read_config
 
@@ -19,6 +19,7 @@ class PlatformType(Enum):
 class ResponseCode(Enum):
     OK = 'OK'
     ERROR = 'ERROR'
+    PARSE_ERROR = 'PARSE ERROR'
     UNKNOWN = 'UNKNOWN'
     TOO_FREQUENT = 'TOO FREQUENT'
 
@@ -28,6 +29,7 @@ CommentUri = str
 Comment = Tuple[CommentUri, str]
 Comments = List[Comment]
 CommentsResponse = Dict[str, Union[ResponseCode, Comments]]
+Response = Dict[str, Any]
 
 
 class Shell:

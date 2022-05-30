@@ -1,0 +1,30 @@
+{
+  "platforms": {
+    "VK": {
+    },
+    "YOUTUBE": {
+      "api_key": "",
+      "client_id": "",
+      "client_secret": "",
+      "access_token": ""
+    },
+    "TELEGRAM": {
+    }
+  },
+  "sources": {
+    "YOUTUBE": {
+    },
+    "VK": {
+    },
+    "TELEGRAM": {
+    }
+  },
+  "responses": {
+    "YOUTUBE": {
+    },
+    "VK": {
+    },
+    "TELEGRAM": {
+    }
+  }
+}
