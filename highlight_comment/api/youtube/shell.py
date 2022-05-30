@@ -81,8 +81,52 @@ class Shell(CommonShell):
 
     @staticmethod
     def __parse_comments(response_json: Dict) -> Comments:
-        # todo: finish parser
-        return response_json
+        result = list()
+        for _thread in response_json['items']:
+            _thread_id = _thread['id']
+            _main_comment = _thread['snippet']
+            result.append(Shell.__parse_one_comment(
+                _main_comment['topLevelComment'],
+                _thread_id,
+                is_top_level=True,
+                reply_count=_main_comment['totalReplyCount']))
+            if 'replies' in _thread:
+                for _reply in _thread['replies']['comments']:
+                    result.append(
+                        Shell.__parse_one_comment(_reply, _thread_id))
+        return result
+
+    @staticmethod
+    def __parse_one_comment(
+            comment_json: Dict,
+            thread_id: str,
+            is_top_level: bool = False,
+            reply_count: int = 0) -> Comment:
+        _comment_id = comment_json['id']
+        _video_id = comment_json['snippet']['videoId']
+        _all_ids = {
+            'video_id': _video_id,
+            'thread_id': thread_id,
+            'comment_id': _comment_id
+        }
+        _text = comment_json['snippet']['textDisplay']
+        _likes = comment_json['snippet']['likeCount']
+        _published = comment_json['snippet']['publishedAt']
+        _parent = None if is_top_level else comment_json['snippet']['parentId']
+        _author_id = comment_json['snippet']['authorChannelId']['value']
+        _meta_info = {
+            'is_top_level': is_top_level,
+            'reply_count': reply_count,
+            'publish_date': _published,
+            'parent_comment_id': _parent,
+            'author_id': _author_id
+        }
+        return {
+            'ids': _all_ids,
+            'text': _text,
+            'meta': _meta_info,
+            'likes': _likes
+        }
 
     @staticmethod
     def __parse_video_ids(response_json: Dict) -> List[VideoData]:

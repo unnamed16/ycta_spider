@@ -26,7 +26,13 @@ class ResponseCode(Enum):
 
 SourceUri = str
 CommentUri = str
-Comment = Tuple[CommentUri, str]
+NumLikes = int
+VideoId = str
+ThreadId = str
+CommentId = str
+MetaInfo = Dict[str, Union[bool, None, CommentId, int, str]]
+Ids = Tuple[VideoId, ThreadId, CommentId]
+Comment = Dict[str, Union[Ids, str, MetaInfo, NumLikes]]
 Comments = List[Comment]
 CommentsResponse = Dict[str, Union[ResponseCode, Comments]]
 Response = Dict[str, Any]

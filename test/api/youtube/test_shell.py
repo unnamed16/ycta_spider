@@ -25,7 +25,7 @@ class YoutubeShellTestCase(TestCase):
         query = shell.get_comments('videoId=Zd1a7qLqqOY')
         self.assertEqual(ResponseCode.OK, query['code'])
         self.assertIn('result', query)
-        self.assertLessEqual(4, len(query['result']))
+        self.assertLessEqual(14, len(query['result']))
 
     def test_add_comments(self) -> None:
         shell = Shell()
