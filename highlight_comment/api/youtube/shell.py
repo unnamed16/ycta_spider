@@ -82,16 +82,16 @@ class Shell(CommonShell):
     @staticmethod
     def __parse_comments(response_json: Dict) -> Comments:
         result = list()
-        for _thread in response_json["items"]:
-            _thread_id = _thread["id"]
-            _main_comment = _thread["snippet"]
+        for _thread in response_json['items']:
+            _thread_id = _thread['id']
+            _main_comment = _thread['snippet']
             result.append(Shell.__parse_one_comment(
-                _main_comment["topLevelComment"],
+                _main_comment['topLevelComment'],
                 _thread_id,
                 is_top_level=True,
-                reply_count=_main_comment["totalReplyCount"]))
-            if "replies" in _thread:
-                for _reply in _thread["replies"]["comments"]:
+                reply_count=_main_comment['totalReplyCount']))
+            if 'replies' in _thread:
+                for _reply in _thread['replies']['comments']:
                     result.append(
                         Shell.__parse_one_comment(_reply, _thread_id))
         return result
