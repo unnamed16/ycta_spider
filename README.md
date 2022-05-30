@@ -19,6 +19,46 @@ it can be included into any other Python project as a submodule.
 
 ### Command Line Interface
 
+***crawl***
+
+Use this command if you want to obtain links on comments from the specified platform
+
+```bash
+python cli.py crawl [-h]
+                    [-l LIMIT]
+                    [-o OUTPUT]
+                    platform
+```
+
+Positional arguments:
+
+**platform** - platform that has to be processed
+
+Optional arguments:
+
+**-l**, **--limit** LIMIT - 
+limit of the obtained records, update infinitely on any key if not specified.
+
+**-o**, **--output** OUTPUT - 
+where to store the result (url - send, file - save, print if not specified) 
+
+**-h**, **--help** - show this help message and exit
+
+
+```bash
+python cli.py crawl VK
+```
+
+```bash
+python cli.py crawl --output C:/result.json YOUTUBE
+```
+
+```bash
+python cli.py highlight --crawl https://myDataBaseServer.com --limit 10 TELEGRAM
+```
+
+---
+
 ***highlight***
 
 Use this command if you want to obtain links on highlighted comments
