@@ -5,7 +5,7 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
 from enum import Enum
-from typing import Tuple, List, Dict, Union, TypeVar
+from typing import Tuple, List, Dict, Union, Any
 
 from highlight_comment.file_manager.reader import read_config
 
@@ -29,8 +29,7 @@ CommentUri = str
 Comment = Tuple[CommentUri, str]
 Comments = List[Comment]
 CommentsResponse = Dict[str, Union[ResponseCode, Comments]]
-ResponseVar = TypeVar('ResponseVar')
-Response = Dict[str, Union[ResponseCode, ResponseVar]]
+Response = Dict[str, Any]
 
 
 class Shell:

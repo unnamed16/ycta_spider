@@ -53,14 +53,14 @@ class Shell(CommonShell):
         self.__client_id = platform_config['client_id']
         self.__client_secret = platform_config['client_secret']
 
-    def get_comments(self, source: SourceUri) -> Response[Comments]:
+    def get_comments(self, source: SourceUri) -> Response:
         func = 'commentThreads'
         part = 'snippet,replies'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
         comments = requests.get(query, headers=self.common_headers)
         return Shell.__parse(comments, Shell.__parse_comments)
 
-    def add_comment(self, source: SourceUri, comment: str) -> Response[Comment]:
+    def add_comment(self, source: SourceUri, comment: str) -> Response:
         func = 'commentThreads'
         part = 'snippet'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
@@ -97,7 +97,7 @@ class Shell(CommonShell):
         ]
 
     @staticmethod
-    def __parse(r: requests.Response, parser: Callable) -> Response[Any]:
+    def __parse(r: requests.Response, parser: Callable) -> Response:
         if not r.ok:
             return {
                 'code': ResponseCode.ERROR,
@@ -137,7 +137,7 @@ class Shell(CommonShell):
         })
         return json.loads(access_token.text)
 
-    def get_video_ids(self, channel_id: str, max_results: int, order: SearchOrder) -> Response[List[VideoData]]:
+    def get_video_ids(self, channel_id: str, max_results: int, order: SearchOrder) -> Response:
         part = 'snippet'
         content_type = 'video'
         func = 'search'
@@ -157,7 +157,7 @@ class Shell(CommonShell):
         return result
 
     @classmethod
-    def get_channel_id(cls, channel: str) -> Response[str]:
+    def get_channel_id(cls, channel: str) -> Response:
         url = f'https://www.youtube.com/c/{channel}'
         req = requests.get(url, 'html.parser')
         if not req.ok:
