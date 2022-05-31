@@ -8,6 +8,8 @@ import argparse
 import os
 from enum import Enum
 
+from highlight_comment import adapter
+from highlight_comment.api import build
 from highlight_comment.api.shell import PlatformType
 
 CRAWL = 'crawl'
@@ -123,10 +125,10 @@ def __try_crawl(platform_name: str, limit: int, output: str, args: argparse.Name
     uri_type = get_uri_type(output)
     if uri_type == UriType.STDIO:
         print(f'Print {"all" if limit is None else limit} comments from {platform_name}')
-        print("Arguments combination is not yet supported: " + str(args))
+        adapter.print_comments(build.shell(PlatformType[platform_name]).get_comments())
     elif uri_type == UriType.FILE:
         print(f'Save {"all" if limit is None else limit} comments from {platform_name} to {output_message}')
-        print("Arguments combination is not yet supported: " + str(args))
+        adapter.save_comments(build.shell(PlatformType[platform_name]).get_comments())
     elif uri_type == UriType.DIRECTORY:
         print(f'Unsupportable option: save comments to the folder {output_message}')
     elif uri_type == UriType.URL:
