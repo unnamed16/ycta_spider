@@ -4,35 +4,16 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-import datetime as dt
-from typing import Any, Callable, Dict, List
-from enum import Enum
-from dataclasses import dataclass
+from typing import Callable, Dict, List
 import json
 from dateutil.parser import isoparse
 
 import requests
 
+from highlight_comment.data.youtube import SearchOrder, VideoData
 from highlight_comment.api.shell import Shell as CommonShell
 from highlight_comment.api.shell import PlatformType, ResponseCode
 from highlight_comment.api.shell import SourceUri, Response, Comments, Comment
-
-
-class SearchOrder(Enum):
-    DATE = 'date'
-    RATING = 'rating'
-    RELEVANCE = 'relevance'
-    TITLE = 'title'
-    VIDEO_COUNT = 'videoCount'
-    VIEW_COUNT = 'viewCount'
-
-
-@dataclass
-class VideoData:
-    videoId: str
-    publishedAt: dt.datetime
-    title: str
-    description: str
 
 
 class Shell(CommonShell):
@@ -55,8 +36,9 @@ class Shell(CommonShell):
 
     def get_comments(self, source: SourceUri) -> Response:
         func = 'commentThreads'
-        part = 'snippet,replies'
+        part = 'snippet,replies,id'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
+        print(query)
         comments = requests.get(query, headers=self.common_headers)
         return Shell.__parse(comments, Shell.__parse_comments)
 
@@ -128,40 +110,6 @@ class Shell(CommonShell):
             'likes': _likes
         }
 
-    @staticmethod
-    def __parse_video_ids(response_json: Dict) -> List[VideoData]:
-        return [
-            VideoData(
-                videoId=json_elem['id']['videoId'],
-                publishedAt=isoparse(json_elem['snippet']['publishedAt']),
-                title=json_elem['snippet']['title'],
-                description=json_elem['snippet']['description']
-            )
-            for json_elem in response_json['items']
-        ]
-
-    @staticmethod
-    def __parse(r: requests.Response, parser: Callable) -> Response:
-        if not r.ok:
-            return {
-                'code': ResponseCode.ERROR,
-                'response.status_code': str(r.status_code),
-                'response.reason': r.reason
-            }
-        try:
-            js = r.json()
-            parsed = {
-                'code': ResponseCode.OK,
-                'result': parser(js)
-            }
-            return parsed
-        except Exception as e:
-            return {
-                'code': ResponseCode.PARSE_ERROR,
-                'message': str(e),
-                'response.text': r.text
-            }
-
     def get_authorization_link(self) -> str:
         return str(
             f"{self.__OAUTH2_URL}?"
@@ -200,6 +148,18 @@ class Shell(CommonShell):
             result['message'] = f'failed to find videos on {channel_id}'
         return result
 
+    @staticmethod
+    def __parse_video_ids(response_json: Dict) -> List[VideoData]:
+        return [
+            VideoData(
+                videoId=json_elem['id']['videoId'],
+                publishedAt=isoparse(json_elem['snippet']['publishedAt']),
+                title=json_elem['snippet']['title'],
+                description=json_elem['snippet']['description']
+            )
+            for json_elem in response_json['items']
+        ]
+
     @classmethod
     def get_channel_id(cls, channel: str) -> Response:
         url = f'https://www.youtube.com/c/{channel}'
@@ -222,3 +182,25 @@ class Shell(CommonShell):
             'code': ResponseCode.OK,
             'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]
         }
+
+    @staticmethod
+    def __parse(r: requests.Response, parser: Callable) -> Response:
+        if not r.ok:
+            return {
+                'code': ResponseCode.ERROR,
+                'response.status_code': str(r.status_code),
+                'response.reason': r.reason
+            }
+        try:
+            js = r.json()
+            parsed = {
+                'code': ResponseCode.OK,
+                'result': parser(js)
+            }
+            return parsed
+        except Exception as e:
+            return {
+                'code': ResponseCode.PARSE_ERROR,
+                'message': str(e),
+                'response.text': r.text
+            }

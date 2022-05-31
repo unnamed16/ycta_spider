@@ -1,4 +1,10 @@
 {
+  "data_path": "",
+  "mongodb": {
+    "cert_path": "",
+    "api_key": "",
+    "url_endpoint": ""
+  },
   "platforms": {
     "VK": {
     },

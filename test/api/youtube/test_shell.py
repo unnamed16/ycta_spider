@@ -6,7 +6,8 @@ __date__ = '2022/05/29'
 
 from unittest import TestCase
 
-from highlight_comment.api.youtube.shell import Shell, SearchOrder
+from highlight_comment.api.youtube.shell import Shell
+from highlight_comment.data.youtube import SearchOrder
 from highlight_comment.api.shell import PlatformType, ResponseCode
 
 
