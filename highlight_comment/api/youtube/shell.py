@@ -5,12 +5,13 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
 from typing import Callable, Dict, List
+from functools import partial
 import json
 from dateutil.parser import isoparse
 
 import requests
 
-from highlight_comment.data.youtube import SearchOrder, VideoData
+from highlight_comment.data.youtube import SearchOrder, VideoData, Channel
 from highlight_comment.api.shell import Shell as CommonShell
 from highlight_comment.api.shell import PlatformType, ResponseCode
 from highlight_comment.api.shell import SourceUri, Response, Comments, Comment
@@ -34,13 +35,32 @@ class Shell(CommonShell):
         self.__client_secret = platform_config['client_secret']
         self.__access_token = platform_config['access_token']
 
-    def get_comments(self, source: SourceUri) -> Response:
+    @staticmethod
+    def __comment_requester(next_page_token, query, headers):
+        response = requests.get(f'{query}&pageToken={next_page_token}', headers=headers)
+        response_json = json.loads(response.text)
+        comments = response_json['items']
+        next_page_token = response_json.get('nextPageToken', '')
+        return comments, next_page_token
+
+    def get_comments(self, source: SourceUri, max_results=100) -> Response:
         func = 'commentThreads'
         part = 'snippet,replies,id'
-        query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
-        print(query)
-        comments = requests.get(query, headers=self.common_headers)
-        return Shell.__parse(comments, Shell.__parse_comments)
+        order = 'relevance'
+        query = f'{self.__V3_URL}{func}?' \
+                f'part={part}&' \
+                f'{source}&' \
+                f'key={self.__api_key}&' \
+                f'maxResults={max_results}&' \
+                f'order={order}'
+        requester = partial(self.__comment_requester, query=query, headers=self.common_headers)
+        comments, next_page_token = requester('')
+        while next_page_token != '':
+            current_comments, next_page_token = requester(next_page_token)
+            comments.append(current_comments)
+        return comments
+        # TODO: fix the parser!
+        # return Shell.__parse(comments, Shell.__parse_comments)
 
     def add_comment(self, source: SourceUri, comment: str) -> Response:
         func = 'commentThreads'
@@ -129,14 +149,17 @@ class Shell(CommonShell):
         })
         return json.loads(access_token.text)
 
-    def get_video_ids(self, channel_id: str, max_results: int, order: SearchOrder) -> Response:
+    def get_video_ids(self, channel: Channel, max_results=10, order=SearchOrder.DATE) -> Response:
         part = 'snippet'
         content_type = 'video'
         func = 'search'
+        if channel.channelId is None:
+            channel.channelId = self.get_channel_id(channel.name, channel.suffix)['result']
+        chId = channel.channelId
         url = str(
             f'{self.__V3_URL}{func}?'
             f'part={part}&'
-            f'channelId={channel_id}&'
+            f'channelId={chId}&'
             f'maxResults={max_results}&'
             f'order={order.value}&'
             f'type={content_type}&'
@@ -145,7 +168,7 @@ class Shell(CommonShell):
         req = requests.get(url)
         result = Shell.__parse(req, Shell.__parse_video_ids)
         if result['code'] == ResponseCode.ERROR:
-            result['message'] = f'failed to find videos on {channel_id}'
+            result['message'] = f'failed to find videos on {chId}'
         return result
 
     @staticmethod
@@ -161,8 +184,8 @@ class Shell(CommonShell):
         ]
 
     @classmethod
-    def get_channel_id(cls, channel: str) -> Response:
-        url = f'https://www.youtube.com/c/{channel}'
+    def get_channel_id(cls, name: str, suffix: str) -> Response:
+        url = f'https://www.youtube.com/{suffix}/{name}'
         req = requests.get(url, 'html.parser')
         if not req.ok:
             return {
@@ -176,7 +199,7 @@ class Shell(CommonShell):
         if loc == -1:
             return {
                 'code': ResponseCode.ERROR,
-                'message': f'failed to find key identifier (externalId) on {channel}'
+                'message': f'failed to find key identifier (externalId) on {name}'
             }
         return {
             'code': ResponseCode.OK,

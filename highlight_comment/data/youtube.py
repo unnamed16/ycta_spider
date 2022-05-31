@@ -1,3 +1,9 @@
+__licence__ = 'MIT'
+__author__ = 'pvp'
+__credits__ = ['pvp']
+__maintainer__ = 'pvp'
+__date__ = '2022/05/30'
+
 import datetime as dt
 import os
 from csv import reader, writer
@@ -30,10 +36,10 @@ ID_SUFFIXES = ['c', 'channel', 'user']
 
 @dataclass
 class Channel:
-    name: str
-    is_antiput: int
-    suffix: str
-    desc: str
+    name: str = None
+    is_antiput: int = None
+    suffix: str = None
+    desc: str = None
     channelId: str = None
 
 
