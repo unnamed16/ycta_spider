@@ -11,7 +11,7 @@ from dateutil.parser import isoparse
 
 import requests
 
-from highlight_comment.data.youtube import SearchOrder, VideoData, Channel
+from highlight_comment.structures.youtube import SearchOrder, VideoData, Channel
 from highlight_comment.api.shell import Shell as CommonShell
 from highlight_comment.api.shell import PlatformType, ResponseCode
 from highlight_comment.api.shell import SourceUri, Response, Comments, Comment
@@ -44,7 +44,13 @@ class Shell(CommonShell):
         next_page_token = response_json.get('nextPageToken', '')
         return comments, next_page_token
 
-    def get_comments(self, source: SourceUri, max_results=100) -> Response:
+    def get_comments(self, source: SourceUri, max_results=100, order='relevance') -> Response:
+        """
+        :param source: videoId=...
+        :param max_results: <= 100
+        :param order: time or relevance
+        :return: response, with result=list of comments
+        """
         func = 'commentThreads'
         part = 'snippet,replies,id'
         order = 'relevance'
@@ -60,10 +66,27 @@ class Shell(CommonShell):
         comments, next_page_token = requester('')
         while next_page_token != '':
             current_comments, next_page_token = requester(next_page_token)
-            comments.append(current_comments)
-        return comments
-        # TODO: fix the parser!
-        # return Shell.__parse(comments, Shell.__parse_comments)
+            comments = comments + current_comments
+        return {
+            'code': ResponseCode.OK,
+            'result': [Shell.__parse_parent_comment(raw_comment) for raw_comment in comments]
+        }
+
+    @staticmethod
+    def __parse_parent_comment(thread: dict) -> Comment:
+        _thread_id = thread['id']
+        _main_comment = thread['snippet']
+        result = Shell.__parse_one_comment(
+            _main_comment['topLevelComment'],
+            _thread_id,
+            is_top_level=True,
+            reply_count=_main_comment['totalReplyCount'])
+        if 'replies' in thread:
+            result['replies'] = []
+            for _reply in thread['replies']['comments']:
+                result['replies'].append(
+                    Shell.__parse_one_comment(_reply, _thread_id))
+        return result
 
     def add_comment(self, source: SourceUri, comment: str) -> Response:
         func = 'commentThreads'
@@ -84,23 +107,6 @@ class Shell(CommonShell):
         comments = requests.post(query, headers=headers, data=data)
         # TODO: make proper parser for the response
         return Shell.__parse(comments, Shell.__parse_comments)
-
-    @staticmethod
-    def __parse_comments(response_json: Dict) -> Comments:
-        result = list()
-        for _thread in response_json['items']:
-            _thread_id = _thread['id']
-            _main_comment = _thread['snippet']
-            result.append(Shell.__parse_one_comment(
-                _main_comment['topLevelComment'],
-                _thread_id,
-                is_top_level=True,
-                reply_count=_main_comment['totalReplyCount']))
-            if 'replies' in _thread:
-                for _reply in _thread['replies']['comments']:
-                    result.append(
-                        Shell.__parse_one_comment(_reply, _thread_id))
-        return result
 
     @staticmethod
     def __parse_one_comment(
@@ -203,7 +209,7 @@ class Shell(CommonShell):
         if loc == -1:
             return {
                 'code': ResponseCode.ERROR,
-                'message': f'failed to find key identifier (externalId) on {name}'
+                'message': f'failed to find key identifier (externalId) on {suffix}/{name}'
             }
         return {
             'code': ResponseCode.OK,
@@ -231,3 +237,18 @@ class Shell(CommonShell):
                 'message': str(e),
                 'response.text': r.text
             }
+
+    def get_video_info(self, videoId: str):
+        # TODO
+        pass
+        # func = 'videos'
+        # url = str(
+        #     f'{self.__V3_URL}{func}?'
+        #     f'part={part}&'
+        #     f'channelId={chId}&'
+        #     f'maxResults={max_results}&'
+        #     f'order={order.value}&'
+        #     f'type={content_type}&'
+        #     f'key={self.__api_key}'
+        # )
+        # print(url)

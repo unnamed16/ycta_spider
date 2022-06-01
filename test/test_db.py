@@ -6,10 +6,11 @@ __date__ = '2022/05/29'
 
 from unittest import TestCase
 
+import highlight_comment.db.youtube
+
 
 class YoutubeDataTestCase(TestCase):
-    from highlight_comment.data import youtube
 
     def test_load_channels(self) -> None:
-        channels = self.youtube.ChannelCache.load_channels()
+        channels = highlight_comment.db.youtube.ChannelCache.load_channels()
         self.assertEqual('DmitryPuchkov', channels[0].name)
