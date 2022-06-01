@@ -48,12 +48,14 @@ class Shell(CommonShell):
         func = 'commentThreads'
         part = 'snippet,replies,id'
         order = 'relevance'
-        query = f'{self.__V3_URL}{func}?' \
-                f'part={part}&' \
-                f'{source}&' \
-                f'key={self.__api_key}&' \
-                f'maxResults={max_results}&' \
-                f'order={order}'
+        query = str(
+            f'{self.__V3_URL}{func}?'
+            f'part={part}&'
+            f'{source}&'
+            f'key={self.__api_key}&'
+            f'maxResults={max_results}&'
+            f'order={order}'
+        )
         requester = partial(self.__comment_requester, query=query, headers=self.common_headers)
         comments, next_page_token = requester('')
         while next_page_token != '':
