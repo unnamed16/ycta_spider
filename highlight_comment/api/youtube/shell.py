@@ -90,6 +90,7 @@ class Shell(CommonShell):
             print(f'\r{i}/{len(sources)}\tDownloading comments from {source}', end='')
             for comment in self.get_comments(source, limit, order=order):
                 yield comment
+        print('\r ', end='')
         print('\r', end='')
 
     @staticmethod

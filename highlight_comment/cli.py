@@ -122,20 +122,24 @@ def __try_crawl(platform_name: str, limit: int, output: str, args: argparse.Name
     if not __check_platform(platform_name):
         return
     output_message = get_uri_message(output)
+    limit_message = "all" if limit is None else limit
     uri_type = get_uri_type(output)
     if uri_type == UriType.STDIO:
-        print(f'Print {"all" if limit is None else limit} comments from {platform_name}')
+        print(f'Print {limit_message} comments per source from {platform_name}')
         adapter.print_comments(
             build.shell(PlatformType[platform_name]).get_comments_from_several_sources(),
             manual_control=limit is None
         )
     elif uri_type == UriType.FILE:
-        print(f'Save {"all" if limit is None else limit} comments from {platform_name} to {output_message}')
-        adapter.save_comments(build.shell(PlatformType[platform_name]).get_comments_from_several_sources(), output)
+        print(f'Save {limit_message} comments per source from {platform_name} to {output_message}')
+        adapter.save_comments(
+            build.shell(PlatformType[platform_name]).get_comments_from_several_sources(limit=limit),
+            output
+        )
     elif uri_type == UriType.DIRECTORY:
         print(f'Unsupportable option: save comments to the folder {output_message}')
     elif uri_type == UriType.URL:
-        print(f'Send {"all" if limit is None else limit} comments from {platform_name} to {output_message}')
+        print(f'Send {limit_message} comments per source from {platform_name} to {output_message}')
         print("Arguments combination is not yet supported: " + str(args))
 
 
@@ -143,17 +147,18 @@ def __try_highlight(platform_name: str, limit: int, output: str, args: argparse.
     if not __check_platform(platform_name):
         return
     output_message = get_uri_message(output)
+    limit_message = "all" if limit is None else limit
     uri_type = get_uri_type(output)
     if uri_type == UriType.STDIO:
-        print(f'Print {"all" if limit is None else limit} highlighted comments from {platform_name}')
+        print(f'Print {limit_message} highlighted comments per source from {platform_name}')
         print("Arguments combination is not yet supported: " + str(args))
     elif uri_type == UriType.FILE:
-        print(f'Save {"all" if limit is None else limit} highlighted comments from {platform_name} to {output_message}')
+        print(f'Save {limit_message} highlighted comments per source from {platform_name} to {output_message}')
         print("Arguments combination is not yet supported: " + str(args))
     elif uri_type == UriType.DIRECTORY:
         print(f'Unsupportable option: save highlighted comments to the folder {output_message}')
     elif uri_type == UriType.URL:
-        print(f'Send {"all" if limit is None else limit} highlighted comments from {platform_name} to {output_message}')
+        print(f'Send {limit_message} highlighted comments per source from {platform_name} to {output_message}')
         print("Arguments combination is not yet supported: " + str(args))
 
 
@@ -161,17 +166,18 @@ def __try_respond(platform_name: str, limit: int, output: str, args: argparse.Na
     if not __check_platform(platform_name):
         return
     output_message = get_uri_message(output)
+    limit_message = "all" if limit is None else limit
     uri_type = get_uri_type(output)
     if uri_type == UriType.STDIO:
-        print(f'Print {"all" if limit is None else limit} responded comments from {platform_name}')
+        print(f'Print {limit_message} responded comments per source from {platform_name}')
         print("Arguments combination is not yet supported: " + str(args))
     elif uri_type == UriType.FILE:
-        print(f'Save {"all" if limit is None else limit} responded comments from {platform_name} to {output_message}')
+        print(f'Save {limit_message} responded comments per source from {platform_name} to {output_message}')
         print("Arguments combination is not yet supported: " + str(args))
     elif uri_type == UriType.DIRECTORY:
         print(f'Unsupportable option: save responded comments to the folder {output_message}')
     elif uri_type == UriType.URL:
-        print(f'Send {"all" if limit is None else limit} responded comments from {platform_name} to {output_message}')
+        print(f'Send {limit_message} responded comments per source from {platform_name} to {output_message}')
         print("Arguments combination is not yet supported: " + str(args))
 
 

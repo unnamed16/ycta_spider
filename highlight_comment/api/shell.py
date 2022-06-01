@@ -26,6 +26,7 @@ class ResponseCode(Enum):
 
 class SearchOrder(Enum):
     DATE = 'date'
+    TIME = 'time'
     RATING = 'rating'
     RELEVANCE = 'relevance'
     TITLE = 'title'
