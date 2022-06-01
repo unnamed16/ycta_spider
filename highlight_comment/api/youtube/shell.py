@@ -30,6 +30,7 @@ class Shell(CommonShell):
         super().__init__()
         self.__platform_type = PlatformType.YOUTUBE
         platform_config = self.config['platforms'][self.platform_type.name]
+        self.__sources = self.config['sources'][self.platform_type.name]
         self.__api_key = platform_config['api_key']
         self.__client_id = platform_config['client_id']
         self.__client_secret = platform_config['client_secret']
@@ -79,6 +80,7 @@ class Shell(CommonShell):
             }
         }
         comments = requests.post(query, headers=headers, data=data)
+        # TODO: make proper parser for the response
         return Shell.__parse(comments, Shell.__parse_comments)
 
     @staticmethod
