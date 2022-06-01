@@ -68,7 +68,7 @@ def cli() -> None:
         LIMIT_SHORT,
         LIMIT,
         type=int,
-        help="limit of the obtained records, update infinitely on any key if not specified.")
+        help="limit of the records obtained per source, update infinitely on Enter key if not specified.")
     crawl.add_argument(
         OUTPUT_SHORT,
         OUTPUT,
@@ -86,7 +86,7 @@ def cli() -> None:
         LIMIT_SHORT,
         LIMIT,
         type=int,
-        help="limit of the obtained records, update infinitely on any key if not specified.")
+        help="limit of the records obtained per source, update infinitely on Enter key if not specified.")
     highlight.add_argument(
         OUTPUT_SHORT,
         OUTPUT,
@@ -101,7 +101,7 @@ def cli() -> None:
         LIMIT_SHORT,
         LIMIT,
         type=int,
-        help="limit of the processed highlighted records, work infinitely if not specified.")
+        help="limit of the processed highlighted records per source, work infinitely if not specified.")
     respond.add_argument(
         OUTPUT_SHORT,
         OUTPUT,

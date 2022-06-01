@@ -6,7 +6,7 @@ __date__ = '2022/05/29'
 
 from unittest import TestCase
 
-from highlight_comment.api.shell import ResponseCode, PlatformType, Comment
+from highlight_comment.api.shell import PlatformType
 from highlight_comment.api import build
 
 

@@ -15,8 +15,8 @@ class ReaderTestCase(TestCase):
         cfg = read_config()
         self.assertIn("platforms", cfg)
         self.assertIn("sources", cfg)
-        self.assertIn("responds", cfg)
-        self.assertEqual(3, len(cfg))
+        self.assertIn("responses", cfg)
+        self.assertEqual(5, len(cfg))
 
     def test_read_json(self) -> None:
         pass

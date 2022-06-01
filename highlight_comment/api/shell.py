@@ -5,7 +5,7 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
 from enum import Enum
-from typing import Tuple, Dict, Union, Any, Iterator
+from typing import Tuple, Dict, Union, Any, Iterator, List
 
 from highlight_comment.file_manager.reader import read_config
 
@@ -24,16 +24,24 @@ class ResponseCode(Enum):
     TOO_FREQUENT = 'TOO FREQUENT'
 
 
-Source = Tuple[str]
+class SearchOrder(Enum):
+    DATE = 'date'
+    RATING = 'rating'
+    RELEVANCE = 'relevance'
+    TITLE = 'title'
+    VIDEO_COUNT = 'videoCount'
+    VIEW_COUNT = 'viewCount'
+
+
+Source = Tuple[str, ...]
 NumLikes = int
 VideoId = str
 ThreadId = str
 CommentId = str
 MetaInfo = Dict[str, Union[bool, None, CommentId, int, str]]
 Ids = Tuple[VideoId, ThreadId, CommentId]
-Comment = Dict[str, Union[Source, CommentId, str, MetaInfo, NumLikes]]
+Comment = Dict[str, Union[Source, CommentId, str, MetaInfo, NumLikes, List]]
 Comments = Iterator[Comment]
-CommentsResponse = Dict[str, Union[ResponseCode, Comments]]
 Response = Dict[str, Any]
 
 
@@ -51,11 +59,26 @@ class Shell:
     def platform_type(self) -> PlatformType:
         return self.__platform_type
 
-    def get_comments(self, source: Source, limit: int) -> Iterator[Comment]:
+    def get_comments(self, source: Source, limit: int, order: SearchOrder) -> Iterator[Comment]:
         """
         Return all comments for the specified source
-        :param source: description of the source where the comment has to be placed
+        :param source: description of the source where from the comments have to be obtained
         :param limit: limit of the comments to download
+        :param order: sort order of the obtained data
+        :return: List of the Comments
+        """
+        pass
+
+    def get_comments_from_several_sources(
+            self,
+            sources: List[Source],
+            limit: int,
+            order: SearchOrder) -> Iterator[Comment]:
+        """
+        Return all comments for the specified source
+        :param sources: source descriptions list where from the comments have to be obtained
+        :param limit: limit of the comments to download
+        :param order: sort order of the obtained data
         :return: List of the Comments
         """
         pass

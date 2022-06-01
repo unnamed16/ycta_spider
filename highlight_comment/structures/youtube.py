@@ -6,17 +6,7 @@ __date__ = '2022/05/30'
 
 import datetime as dt
 from dataclasses import dataclass
-from enum import Enum
 from typing import List
-
-
-class SearchOrder(Enum):
-    DATE = 'date'
-    RATING = 'rating'
-    RELEVANCE = 'relevance'
-    TITLE = 'title'
-    VIDEO_COUNT = 'videoCount'
-    VIEW_COUNT = 'viewCount'
 
 
 @dataclass

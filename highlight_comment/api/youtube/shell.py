@@ -4,17 +4,17 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Iterator
 from functools import partial
 import json
 from dateutil.parser import isoparse
 
 import requests
 
-from highlight_comment.structures.youtube import SearchOrder, VideoData, Channel, VideoInfos, VideoInfo
+from highlight_comment.structures.youtube import VideoData, Channel, VideoInfos, VideoInfo
 from highlight_comment.api.shell import Shell as CommonShell
-from highlight_comment.api.shell import PlatformType, ResponseCode
-from highlight_comment.api.shell import SourceUri, Response, Comment
+from highlight_comment.api.shell import PlatformType, ResponseCode, SearchOrder
+from highlight_comment.api.shell import Source, Response, Comment
 
 
 class Shell(CommonShell):
@@ -39,38 +39,48 @@ class Shell(CommonShell):
     @staticmethod
     def __comment_requester(next_page_token, query, headers):
         response = requests.get(f'{query}&pageToken={next_page_token}', headers=headers)
-        response_json = json.loads(response.text)
+        response_json = json.loads(response.text)  # FIXME: this will cause Error if youtube response in not json
         comments = response_json['items']
         next_page_token = response_json.get('nextPageToken', '')
         return comments, next_page_token
 
-    def get_comments(self, source: SourceUri, max_results=100, order='relevance') -> Response:
+    def get_comments(self, source: Source, limit: int = None, order=SearchOrder.RELEVANCE) -> Iterator[Comment]:
         """
+        Return all comments for the specified source
         :param source: ('videoId', 'MyVideoId')
-        :param max_results: <= 100
+        :param limit: <= 100
         :param order: time or relevance
-        :return: response, with result=list of comments
+        :return: generator of comments
         """
         func = 'commentThreads'
         part = 'snippet,replies,id'
-        order = 'relevance'
         query = str(
             f'{self.__V3_URL}{func}?'
             f'part={part}&'
             f'{source}&'
             f'key={self.__api_key}&'
-            f'maxResults={max_results}&'
-            f'order={order}'
+            f'maxResults={100 if limit is None else min(100, limit)}&'
+            f'order={order.value}'
         )
         requester = partial(self.__comment_requester, query=query, headers=self.common_headers)
         comments, next_page_token = requester('')
-        while next_page_token != '':
-            current_comments, next_page_token = requester(next_page_token)
-            comments = comments + current_comments
-        return {
-            'code': ResponseCode.OK,
-            'result': [Shell.__parse_parent_comment(raw_comment) for raw_comment in comments]
-        }
+        for comment in comments:
+            yield Shell.__parse_parent_comment(comment)
+            limit -= 1  # FIXME: this is unproductive
+        while next_page_token != '' and (limit is None or limit > 0):
+            comments, next_page_token = requester(next_page_token)
+            for comment in comments:
+                yield Shell.__parse_parent_comment(comment)
+                limit -= 1  # FIXME: this is unproductive
+
+    def get_comments_from_several_sources(
+            self,
+            sources: List[Source],
+            limit: int,
+            order: SearchOrder) -> Iterator[Comment]:
+        for source in sources:
+            for comment in self.get_comments(source, limit, order=order):
+                yield comment
 
     @staticmethod
     def __parse_parent_comment(thread: dict) -> Comment:
@@ -82,13 +92,13 @@ class Shell(CommonShell):
             is_top_level=True,
             reply_count=_main_comment['totalReplyCount'])
         if 'replies' in thread:
-            result['replies'] = list()
-            for _reply in thread['replies']['comments']:
-                result['replies'].append(
-                    Shell.__parse_one_comment(_reply, _thread_id))
+            result['replies'] = [
+                Shell.__parse_one_comment(reply, _thread_id)
+                for reply in thread['replies']['comments']
+            ]
         return result
 
-    def add_comment(self, source: SourceUri, comment: str) -> Response:
+    def add_comment(self, source: Source, comment: str) -> Response:
         func = 'commentThreads'
         part = 'snippet'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
@@ -106,7 +116,7 @@ class Shell(CommonShell):
         }
         comments = requests.post(query, headers=headers, data=data)
         # TODO: make proper parser for the response
-        return Shell.__parse(comments, Shell.__parse_comments)
+        return Shell.__parse(comments, Shell.__parse_one_comment)
 
     @staticmethod
     def __parse_one_comment(
@@ -165,11 +175,11 @@ class Shell(CommonShell):
         func = 'search'
         if channel.channelId is None:
             channel.channelId = self.get_channel_id(channel.name, channel.suffix)['result']
-        chId = channel.channelId
+        channel_id = channel.channelId
         url = str(
             f'{self.__V3_URL}{func}?'
             f'part={part}&'
-            f'channelId={chId}&'
+            f'channelId={channel_id}&'
             f'maxResults={max_results}&'
             f'order={order.value}&'
             f'type={content_type}&'
@@ -178,7 +188,7 @@ class Shell(CommonShell):
         req = requests.get(url)
         result = Shell.__parse(req, Shell.__parse_video_ids)
         if result['code'] == ResponseCode.ERROR:
-            result['message'] = f'failed to find videos on {chId}'
+            result['message'] = f'failed to find videos on {channel_id}'
         return result
 
     @staticmethod
@@ -245,7 +255,7 @@ class Shell(CommonShell):
         ids = ','.join(videos)
         url = f'{self.__V3_URL}{func}?part={part}&id={ids}&key={self.__api_key}'
         req = requests.get(url, headers=self.common_headers)
-        return self.__parse(req, self.__parse_video_infos)
+        return self.__parse(req, self.__parse_video_info)
 
     @staticmethod
     def __parse_single_video_info(info: Dict) -> VideoInfo:
@@ -268,5 +278,5 @@ class Shell(CommonShell):
         )
 
     @staticmethod
-    def __parse_video_infos(request_json: Dict) -> VideoInfos:
+    def __parse_video_info(request_json: Dict) -> VideoInfos:
         return list(map(Shell.__parse_single_video_info, request_json['items']))
