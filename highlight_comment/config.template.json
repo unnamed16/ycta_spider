@@ -18,12 +18,14 @@
     }
   },
   "sources": {
-    "YOUTUBE": {
-    },
-    "VK": {
-    },
-    "TELEGRAM": {
-    }
+    "YOUTUBE": [
+      ["videoId", "i2FGXF540pU"],
+      ["videoId", "N8eG_EJTv8M"]
+    ],
+    "VK": [
+    ],
+    "TELEGRAM": [
+    ]
   },
   "responses": {
     "YOUTUBE": {

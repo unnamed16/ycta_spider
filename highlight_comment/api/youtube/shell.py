@@ -46,7 +46,7 @@ class Shell(CommonShell):
 
     def get_comments(self, source: SourceUri, max_results=100, order='relevance') -> Response:
         """
-        :param source: videoId=...
+        :param source: ('videoId', 'MyVideoId')
         :param max_results: <= 100
         :param order: time or relevance
         :return: response, with result=list of comments
