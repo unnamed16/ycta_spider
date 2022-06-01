@@ -5,7 +5,7 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
 from enum import Enum
-from typing import Tuple, List, Dict, Union, Any
+from typing import Tuple, Dict, Union, Any, Iterator, List
 
 from highlight_comment.file_manager.reader import read_config
 
@@ -24,17 +24,25 @@ class ResponseCode(Enum):
     TOO_FREQUENT = 'TOO FREQUENT'
 
 
-SourceUri = str
-CommentUri = str
+class SearchOrder(Enum):
+    DATE = 'date'
+    TIME = 'time'
+    RATING = 'rating'
+    RELEVANCE = 'relevance'
+    TITLE = 'title'
+    VIDEO_COUNT = 'videoCount'
+    VIEW_COUNT = 'viewCount'
+
+
+Source = Tuple[str, ...]
 NumLikes = int
 VideoId = str
 ThreadId = str
 CommentId = str
 MetaInfo = Dict[str, Union[bool, None, CommentId, int, str]]
 Ids = Tuple[VideoId, ThreadId, CommentId]
-Comment = Dict[str, Union[Ids, str, MetaInfo, NumLikes]]
-Comments = List[Comment]
-CommentsResponse = Dict[str, Union[ResponseCode, Comments]]
+Comment = Dict[str, Union[Source, CommentId, str, MetaInfo, NumLikes, List]]
+Comments = Iterator[Comment]
 Response = Dict[str, Any]
 
 
@@ -52,28 +60,35 @@ class Shell:
     def platform_type(self) -> PlatformType:
         return self.__platform_type
 
-    def get_comments(self, source: SourceUri) -> List[Comment]:
+    def get_comments(self, source: Source, limit: int, order: SearchOrder) -> Iterator[Comment]:
         """
-        Return all comments for the specified source.
-        :return: Dictionary with key 'balances' in the root and a corresponding dictionary with currencies as keys
-        and pairs Available/Locked Balances as values.
-        """
-        pass
-
-    def add_comment(self, source: SourceUri, comment: str) -> ResponseCode:
-        """
-        Add specified comment to the source:
-        :param source: link to the source where the comment has to be placed.
-        :param comment: text that has to be added.
-        :return: response code from the api.
+        Return all comments for the specified source\n
+        :param source: description of the source where from the comments have to be obtained
+        :param limit: limit of the comments to download
+        :param order: sort order of the obtained data
+        :return: List of the Comments
         """
         pass
 
-    def add_response(self, comment: CommentUri, response: str) -> ResponseCode:
+    def get_comments_from_several_sources(
+            self,
+            sources: List[Source],
+            limit: int,
+            order: SearchOrder) -> Iterator[Comment]:
         """
-        Add specified response to the comment:
-        :param comment: link to the comment where the response has to be placed.
-        :param response: text that has to be added.
-        :return: response code from the api.
+        Return all comments for the specified source\n
+        :param sources: source descriptions list where from the comments have to be obtained
+        :param limit: limit of the comments to download
+        :param order: sort order of the obtained data
+        :return: List of the Comments
+        """
+        pass
+
+    def add_comment(self, source: Source, comment: str) -> Comment:
+        """
+        Add specified comment to the source (it may be video, channel or another comment)\n
+        :param source: description of the source where the comment has to be placed
+        :param comment: text that has to be added
+        :return: added Comment
         """
         pass

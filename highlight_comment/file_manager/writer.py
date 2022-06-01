@@ -6,14 +6,16 @@ __date__ = '2020/05/19'
 
 import os
 import json
-from typing import Any, AnyStr
+from csv import writer
+from pathlib import Path
+from typing import Any, AnyStr, List, Union
 
 
-def save_file(data: AnyStr, path: str) -> None:
+def save_file(data: AnyStr, path: Union[str, Path]) -> None:
     """
-    Save data to a file.
-    :param data: data to save.
-    :param path: string with the path to an output file.
+    Save data to a file\n
+    :param data: data to save
+    :param path: string with the path to an output file
     """
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
@@ -21,10 +23,22 @@ def save_file(data: AnyStr, path: str) -> None:
         f.write(data)
 
 
-def save_json(data: Any, path: str) -> None:
+def save_json(data: Any, path: Union[str, Path]) -> None:
     """
-    Save data to a JSON file.
-    :param data: data to save.
-    :param path: string with the path to an output file.
+    Save data to a JSON file\n
+    :param data: data to save
+    :param path: string with the path to an output file
     """
     save_file(json.dumps(data, indent=4), path)
+
+
+def save_csv(data: List[List[Any]], path: Union[str, Path]) -> None:
+    """
+    Save data to a CSV file\n
+    :param data: data to save
+    :param path: string with the path to an output file
+    """
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
+    with open(path, 'w', newline='') as f:
+        writer(f, delimiter=';').writerows(data)

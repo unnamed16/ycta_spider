@@ -37,7 +37,7 @@ Positional arguments:
 Optional arguments:
 
 **-l**, **--limit** LIMIT - 
-limit of the obtained records, update infinitely on any key if not specified.
+limit of the records obtained per source, update infinitely on Enter key if not specified.
 
 **-o**, **--output** OUTPUT - 
 where to store the result (url - send, file - save, print if not specified) 
@@ -77,7 +77,7 @@ Positional arguments:
 Optional arguments:
 
 **-l**, **--limit** LIMIT - 
-limit of the obtained records, update infinitely on any key if not specified.
+limit of the records obtained per source, update infinitely on Enter key if not specified.
 
 **-o**, **--output** OUTPUT - 
 where to store the result (url - send, file - save, print if not specified) 
@@ -119,7 +119,7 @@ Positional arguments:
 Optional arguments:
 
 **-l**, **--limit** LIMIT - 
-limit of the processed highlighted records, work infinitely if not specified.
+limit of the processed highlighted records per source, work infinitely if not specified.
 
 **-o**, **--output** OUTPUT - 
 where to store the result (url - send, file - save, print if not specified) 

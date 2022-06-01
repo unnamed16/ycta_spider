@@ -4,35 +4,17 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-import datetime as dt
-from typing import Any, Callable, Dict, List
-from enum import Enum
-from dataclasses import dataclass
+from typing import Callable, Dict, List, Iterator
+from functools import partial
 import json
 from dateutil.parser import isoparse
 
 import requests
 
+from highlight_comment.structures.youtube import VideoData, Channel, VideoInfos, VideoInfo
 from highlight_comment.api.shell import Shell as CommonShell
-from highlight_comment.api.shell import PlatformType, ResponseCode
-from highlight_comment.api.shell import SourceUri, Response, Comments, Comment
-
-
-class SearchOrder(Enum):
-    DATE = 'date'
-    RATING = 'rating'
-    RELEVANCE = 'relevance'
-    TITLE = 'title'
-    VIDEO_COUNT = 'videoCount'
-    VIEW_COUNT = 'viewCount'
-
-
-@dataclass
-class VideoData:
-    videoId: str
-    publishedAt: dt.datetime
-    title: str
-    description: str
+from highlight_comment.api.shell import PlatformType, ResponseCode, SearchOrder
+from highlight_comment.api.shell import Source, Response, Comment
 
 
 class Shell(CommonShell):
@@ -48,19 +30,86 @@ class Shell(CommonShell):
         super().__init__()
         self.__platform_type = PlatformType.YOUTUBE
         platform_config = self.config['platforms'][self.platform_type.name]
+        self.__sources = self.config['sources'][self.platform_type.name]
         self.__api_key = platform_config['api_key']
         self.__client_id = platform_config['client_id']
         self.__client_secret = platform_config['client_secret']
         self.__access_token = platform_config['access_token']
 
-    def get_comments(self, source: SourceUri) -> Response:
-        func = 'commentThreads'
-        part = 'snippet,replies'
-        query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
-        comments = requests.get(query, headers=self.common_headers)
-        return Shell.__parse(comments, Shell.__parse_comments)
+    @staticmethod
+    def __comment_requester(next_page_token, query, headers):
+        response = requests.get(f'{query}&pageToken={next_page_token}', headers=headers)
+        response_json = json.loads(response.text)  # FIXME: this will cause Error if youtube response in not json
+        comments = response_json['items']
+        next_page_token = response_json.get('nextPageToken', '')
+        return comments, next_page_token
 
-    def add_comment(self, source: SourceUri, comment: str) -> Response:
+    def get_comments(
+            self,
+            source: Source,
+            limit: int = None,
+            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
+        """
+        Return all comments for the specified source\n
+        :param source: ('videoId', 'MyVideoId')
+        :param limit: <= 100
+        :param order: time or relevance
+        :return: generator of comments
+        """
+        func = 'commentThreads'
+        part = 'snippet,replies,id'
+        query = str(
+            f'{self.__V3_URL}{func}?'
+            f'part={part}&'
+            f'{source[0]}={source[1]}&'
+            f'key={self.__api_key}&'
+            f'maxResults={100 if limit is None else min(100, limit)}&'
+            f'order={order.value}'
+        )
+        requester = partial(self.__comment_requester, query=query, headers=self.common_headers)
+        comments, next_page_token = requester('')
+        for comment in comments:
+            yield Shell.__parse_parent_comment(comment)
+        if limit is not None:
+            limit -= 100  # FIXME: this "100" should to be a constant
+        while next_page_token != '' and (limit is None or limit > 0):
+            comments, next_page_token = requester(next_page_token)
+            for comment in comments:
+                yield Shell.__parse_parent_comment(comment)
+            if limit is not None:
+                limit -= 100
+
+    def get_comments_from_several_sources(
+            self,
+            sources: List[Source] = None,
+            limit: int = None,
+            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
+        if sources is None:
+            sources = self.__sources
+        for i, source in enumerate(sources):
+            print(f'\r{i}/{len(sources)}\tDownloading comments from {source}', end='')
+            for comment in self.get_comments(source, limit, order=order):
+                yield comment
+        print('\r ', end='')
+        print('\r', end='')
+
+    @staticmethod
+    def __parse_parent_comment(thread: dict) -> Comment:
+        _thread_id = thread['id']
+        _main_comment = thread['snippet']
+        result = Shell.__parse_one_comment(
+            _main_comment['topLevelComment'],
+            _thread_id,
+            is_top_level=True,
+            reply_count=_main_comment['totalReplyCount'])
+        if 'replies' in thread:
+            result['replies'] = [
+                Shell.__parse_one_comment(reply, _thread_id)
+                for reply in thread['replies']['comments']
+            ]
+        return result
+
+    def add_comment(self, source: Source, comment: str) -> Response:
         func = 'commentThreads'
         part = 'snippet'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
@@ -77,24 +126,8 @@ class Shell(CommonShell):
             }
         }
         comments = requests.post(query, headers=headers, data=data)
-        return Shell.__parse(comments, Shell.__parse_comments)
-
-    @staticmethod
-    def __parse_comments(response_json: Dict) -> Comments:
-        result = list()
-        for _thread in response_json['items']:
-            _thread_id = _thread['id']
-            _main_comment = _thread['snippet']
-            result.append(Shell.__parse_one_comment(
-                _main_comment['topLevelComment'],
-                _thread_id,
-                is_top_level=True,
-                reply_count=_main_comment['totalReplyCount']))
-            if 'replies' in _thread:
-                for _reply in _thread['replies']['comments']:
-                    result.append(
-                        Shell.__parse_one_comment(_reply, _thread_id))
-        return result
+        # TODO: make proper parser for the response
+        return Shell.__parse(comments, Shell.__parse_one_comment)
 
     @staticmethod
     def __parse_one_comment(
@@ -128,6 +161,47 @@ class Shell(CommonShell):
             'likes': _likes
         }
 
+    def get_authorization_link(self) -> str:
+        return str(
+            f"{self.__OAUTH2_URL}?"
+            f"client_id={self.__client_id}&"
+            f"response_type=code&"
+            f"scope={self.__SCOPE}&"
+            f"access_type=offline&redirect_uri={self.__REDIRECT_URI}"
+        )
+
+    def get_access_token(self, authorization_code: str) -> Dict[str, str]:
+        access_token = requests.post(self.__TOKEN_URL, data={
+            "client_id": self.__client_id,
+            "client_secret": self.__client_secret,
+            "code": authorization_code,
+            "redirect_uri": self.__REDIRECT_URI,
+            "grant_type": "authorization_code"
+        })
+        return json.loads(access_token.text)
+
+    def get_video_ids(self, channel: Channel, max_results=10, order=SearchOrder.DATE) -> Response:
+        part = 'snippet'
+        content_type = 'video'
+        func = 'search'
+        if channel.channelId is None:
+            channel.channelId = self.get_channel_id(channel.name, channel.suffix)['result']
+        channel_id = channel.channelId
+        url = str(
+            f'{self.__V3_URL}{func}?'
+            f'part={part}&'
+            f'channelId={channel_id}&'
+            f'maxResults={max_results}&'
+            f'order={order.value}&'
+            f'type={content_type}&'
+            f'key={self.__api_key}'
+        )
+        req = requests.get(url)
+        result = Shell.__parse(req, Shell.__parse_video_ids)
+        if result['code'] == ResponseCode.ERROR:
+            result['message'] = f'failed to find videos on {channel_id}'
+        return result
+
     @staticmethod
     def __parse_video_ids(response_json: Dict) -> List[VideoData]:
         return [
@@ -139,6 +213,29 @@ class Shell(CommonShell):
             )
             for json_elem in response_json['items']
         ]
+
+    @classmethod
+    def get_channel_id(cls, name: str, suffix: str) -> Response:
+        url = f'https://www.youtube.com/{suffix}/{name}'
+        req = requests.get(url, 'html.parser')
+        if not req.ok:
+            return {
+                'code': ResponseCode.ERROR,
+                'message': f'failed to fetch the source at {url}',
+                'response.status_code': str(req.status_code),
+                'response.reason': req.reason
+            }
+        text = req.text
+        loc = text.find('externalId')
+        if loc == -1:
+            return {
+                'code': ResponseCode.ERROR,
+                'message': f'failed to find key identifier (externalId) on {suffix}/{name}'
+            }
+        return {
+            'code': ResponseCode.OK,
+            'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]
+        }
 
     @staticmethod
     def __parse(r: requests.Response, parser: Callable) -> Response:
@@ -162,63 +259,35 @@ class Shell(CommonShell):
                 'response.text': r.text
             }
 
-    def get_authorization_link(self) -> str:
-        return str(
-            f"{self.__OAUTH2_URL}?"
-            f"client_id={self.__client_id}&"
-            f"response_type=code&"
-            f"scope={self.__SCOPE}&"
-            f"access_type=offline&redirect_uri={self.__REDIRECT_URI}"
+    def get_videos_info(self, videos: List[str]) -> Response:
+        func = 'videos'
+        part = 'statistics,contentDetails,id,liveStreamingDetails,localizations,player,' \
+               'recordingDetails,snippet,status,topicDetails'
+        ids = ','.join(videos)
+        url = f'{self.__V3_URL}{func}?part={part}&id={ids}&key={self.__api_key}'
+        req = requests.get(url, headers=self.common_headers)
+        return self.__parse(req, self.__parse_video_info)
+
+    @staticmethod
+    def __parse_single_video_info(info: Dict) -> VideoInfo:
+        snippet = info['snippet']
+        stats = info['statistics']
+        return VideoInfo(
+            id=info['id'],
+            time=isoparse(snippet['publishedAt']),
+            channelId=snippet['channelId'],
+            title=snippet['title'],
+            description=snippet['description'],
+            channelTitle=snippet['channelTitle'],
+            tags=snippet['tags'],
+            categoryId=int(snippet['categoryId']),
+            duration=info['contentDetails']['duration'],
+            viewCount=int(stats['viewCount']),
+            likeCount=int(stats['likeCount']),
+            commentCount=int(stats['commentCount']),
+            topicCategories=info['topicDetails']['topicCategories']
         )
 
-    def get_access_token(self, authorization_code: str) -> Dict[str, str]:
-        access_token = requests.post(self.__TOKEN_URL, data={
-            "client_id": self.__client_id,
-            "client_secret": self.__client_secret,
-            "code": authorization_code,
-            "redirect_uri": self.__REDIRECT_URI,
-            "grant_type": "authorization_code"
-        })
-        return json.loads(access_token.text)
-
-    def get_video_ids(self, channel_id: str, max_results: int, order: SearchOrder) -> Response:
-        part = 'snippet'
-        content_type = 'video'
-        func = 'search'
-        url = str(
-            f'{self.__V3_URL}{func}?'
-            f'part={part}&'
-            f'channelId={channel_id}&'
-            f'maxResults={max_results}&'
-            f'order={order.value}&'
-            f'type={content_type}&'
-            f'key={self.__api_key}'
-        )
-        req = requests.get(url)
-        result = Shell.__parse(req, Shell.__parse_video_ids)
-        if result['code'] == ResponseCode.ERROR:
-            result['message'] = f'failed to find videos on {channel_id}'
-        return result
-
-    @classmethod
-    def get_channel_id(cls, channel: str) -> Response:
-        url = f'https://www.youtube.com/c/{channel}'
-        req = requests.get(url, 'html.parser')
-        if not req.ok:
-            return {
-                'code': ResponseCode.ERROR,
-                'message': f'failed to fetch the source at {url}',
-                'response.status_code': str(req.status_code),
-                'response.reason': req.reason
-            }
-        text = req.text
-        loc = text.find('externalId')
-        if loc == -1:
-            return {
-                'code': ResponseCode.ERROR,
-                'message': f'failed to find key identifier (externalId) on {channel}'
-            }
-        return {
-            'code': ResponseCode.OK,
-            'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]
-        }
+    @staticmethod
+    def __parse_video_info(request_json: Dict) -> VideoInfos:
+        return list(map(Shell.__parse_single_video_info, request_json['items']))

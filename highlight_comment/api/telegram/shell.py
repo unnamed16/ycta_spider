@@ -4,13 +4,13 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 import requests
 
-from highlight_comment.api.shell import Shell as CommonShell, Comments
+from highlight_comment.api.shell import Shell as CommonShell, Comments, SearchOrder, Comment
 from highlight_comment.api.shell import PlatformType, ResponseCode
-from highlight_comment.api.shell import SourceUri, CommentsResponse
+from highlight_comment.api.shell import Source
 
 
 class Shell(CommonShell):
@@ -20,10 +20,8 @@ class Shell(CommonShell):
         self.__platform_type = PlatformType.TELEGRAM
         # todo: change url
         self.host = 'https://developers.google.com/apis-explorer/#p/youtube/v3/'
-        self.access_key = self.config['platforms'][self.platform_type.name]['access_key']
-        self.secret_key = self.config['platforms'][self.platform_type.name]['secret_key']
 
-    def get_comments(self, source: SourceUri) -> CommentsResponse:
+    def get_comments(self, source: Source, limit: int, order=SearchOrder.RELEVANCE) -> Iterator[Comment]:
         # todo: change url
         url = 'youtube.commentThreads.list'
         part = 'part=snippet,replies'
