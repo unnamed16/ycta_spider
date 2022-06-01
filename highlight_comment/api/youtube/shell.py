@@ -11,10 +11,10 @@ from dateutil.parser import isoparse
 
 import requests
 
-from highlight_comment.structures.youtube import SearchOrder, VideoData, Channel
+from highlight_comment.structures.youtube import SearchOrder, VideoData, Channel, VideoInfos, VideoInfo
 from highlight_comment.api.shell import Shell as CommonShell
 from highlight_comment.api.shell import PlatformType, ResponseCode
-from highlight_comment.api.shell import SourceUri, Response, Comments, Comment
+from highlight_comment.api.shell import SourceUri, Response, Comment
 
 
 class Shell(CommonShell):
@@ -82,7 +82,7 @@ class Shell(CommonShell):
             is_top_level=True,
             reply_count=_main_comment['totalReplyCount'])
         if 'replies' in thread:
-            result['replies'] = []
+            result['replies'] = list()
             for _reply in thread['replies']['comments']:
                 result['replies'].append(
                     Shell.__parse_one_comment(_reply, _thread_id))
@@ -238,17 +238,35 @@ class Shell(CommonShell):
                 'response.text': r.text
             }
 
-    def get_video_info(self, videoId: str):
-        # TODO
-        pass
-        # func = 'videos'
-        # url = str(
-        #     f'{self.__V3_URL}{func}?'
-        #     f'part={part}&'
-        #     f'channelId={chId}&'
-        #     f'maxResults={max_results}&'
-        #     f'order={order.value}&'
-        #     f'type={content_type}&'
-        #     f'key={self.__api_key}'
-        # )
-        # print(url)
+    def get_videos_info(self, videos: List[str]) -> Response:
+        func = 'videos'
+        part = 'statistics,contentDetails,id,liveStreamingDetails,localizations,player,' \
+               'recordingDetails,snippet,status,topicDetails'
+        ids = ','.join(videos)
+        url = f'{self.__V3_URL}{func}?part={part}&id={ids}&key={self.__api_key}'
+        req = requests.get(url, headers=self.common_headers)
+        return self.__parse(req, self.__parse_video_infos)
+
+    @staticmethod
+    def __parse_single_video_info(info: Dict) -> VideoInfo:
+        snippet = info['snippet']
+        stats = info['statistics']
+        return VideoInfo(
+            id=info['id'],
+            time=isoparse(snippet['publishedAt']),
+            channelId=snippet['channelId'],
+            title=snippet['title'],
+            description=snippet['description'],
+            channelTitle=snippet['channelTitle'],
+            tags=snippet['tags'],
+            categoryId=int(snippet['categoryId']),
+            duration=info['contentDetails']['duration'],
+            viewCount=int(stats['viewCount']),
+            likeCount=int(stats['likeCount']),
+            commentCount=int(stats['commentCount']),
+            topicCategories=info['topicDetails']['topicCategories']
+        )
+
+    @staticmethod
+    def __parse_video_infos(request_json: Dict) -> VideoInfos:
+        return list(map(Shell.__parse_single_video_info, request_json['items']))

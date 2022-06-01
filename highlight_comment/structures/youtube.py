@@ -37,3 +37,23 @@ class Channel:
 
 
 Channels = List[Channel]
+
+
+@dataclass
+class VideoInfo:
+    id: str
+    time: dt.datetime
+    channelId: str
+    title: str
+    description: str
+    channelTitle: str
+    tags: List[str]
+    categoryId: int
+    duration: str
+    viewCount: int
+    likeCount: int
+    commentCount: int
+    topicCategories: List[int]
+
+
+VideoInfos = List[VideoInfo]
