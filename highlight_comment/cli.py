@@ -125,16 +125,18 @@ def __try_crawl(platform_name: str, limit: int, output: str, args: argparse.Name
     uri_type = get_uri_type(output)
     if uri_type == UriType.STDIO:
         print(f'Print {"all" if limit is None else limit} comments from {platform_name}')
-        adapter.print_comments(build.shell(PlatformType[platform_name]).get_comments())
+        adapter.print_comments(
+            build.shell(PlatformType[platform_name]).get_comments_from_several_sources(),
+            manual_control=limit is None
+        )
     elif uri_type == UriType.FILE:
         print(f'Save {"all" if limit is None else limit} comments from {platform_name} to {output_message}')
-        adapter.save_comments(build.shell(PlatformType[platform_name]).get_comments())
+        adapter.save_comments(build.shell(PlatformType[platform_name]).get_comments_from_several_sources(), output)
     elif uri_type == UriType.DIRECTORY:
         print(f'Unsupportable option: save comments to the folder {output_message}')
     elif uri_type == UriType.URL:
         print(f'Send {"all" if limit is None else limit} comments from {platform_name} to {output_message}')
         print("Arguments combination is not yet supported: " + str(args))
-    print(PlatformType[platform_name], limit, output)
 
 
 def __try_highlight(platform_name: str, limit: int, output: str, args: argparse.Namespace) -> None:
@@ -153,7 +155,6 @@ def __try_highlight(platform_name: str, limit: int, output: str, args: argparse.
     elif uri_type == UriType.URL:
         print(f'Send {"all" if limit is None else limit} highlighted comments from {platform_name} to {output_message}')
         print("Arguments combination is not yet supported: " + str(args))
-    print(PlatformType[platform_name], limit, output)
 
 
 def __try_respond(platform_name: str, limit: int, output: str, args: argparse.Namespace) -> None:
@@ -172,7 +173,6 @@ def __try_respond(platform_name: str, limit: int, output: str, args: argparse.Na
     elif uri_type == UriType.URL:
         print(f'Send {"all" if limit is None else limit} responded comments from {platform_name} to {output_message}')
         print("Arguments combination is not yet supported: " + str(args))
-    print(PlatformType[platform_name], limit, output)
 
 
 def __check_platform(platform_name: str) -> bool:

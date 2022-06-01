@@ -44,9 +44,13 @@ class Shell(CommonShell):
         next_page_token = response_json.get('nextPageToken', '')
         return comments, next_page_token
 
-    def get_comments(self, source: Source, limit: int = None, order=SearchOrder.RELEVANCE) -> Iterator[Comment]:
+    def get_comments(
+            self,
+            source: Source,
+            limit: int = None,
+            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
         """
-        Return all comments for the specified source
+        Return all comments for the specified source\n
         :param source: ('videoId', 'MyVideoId')
         :param limit: <= 100
         :param order: time or relevance
@@ -57,7 +61,7 @@ class Shell(CommonShell):
         query = str(
             f'{self.__V3_URL}{func}?'
             f'part={part}&'
-            f'{source}&'
+            f'{source[0]}={source[1]}&'
             f'key={self.__api_key}&'
             f'maxResults={100 if limit is None else min(100, limit)}&'
             f'order={order.value}'
@@ -66,21 +70,27 @@ class Shell(CommonShell):
         comments, next_page_token = requester('')
         for comment in comments:
             yield Shell.__parse_parent_comment(comment)
-            limit -= 1  # FIXME: this is unproductive
+        if limit is not None:
+            limit -= 100  # FIXME: this "100" should to be a constant
         while next_page_token != '' and (limit is None or limit > 0):
             comments, next_page_token = requester(next_page_token)
             for comment in comments:
                 yield Shell.__parse_parent_comment(comment)
-                limit -= 1  # FIXME: this is unproductive
+            if limit is not None:
+                limit -= 100
 
     def get_comments_from_several_sources(
             self,
-            sources: List[Source],
-            limit: int,
-            order: SearchOrder) -> Iterator[Comment]:
-        for source in sources:
+            sources: List[Source] = None,
+            limit: int = None,
+            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
+        if sources is None:
+            sources = self.__sources
+        for i, source in enumerate(sources):
+            print(f'\r{i}/{len(sources)}\tDownloading comments from {source}', end='')
             for comment in self.get_comments(source, limit, order=order):
                 yield comment
+        print('\r', end='')
 
     @staticmethod
     def __parse_parent_comment(thread: dict) -> Comment:

@@ -4,10 +4,12 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/06/01'
 
-from typing import Any
+import json
+from pathlib import Path
+from typing import Union
 
 from highlight_comment.api.shell import Comments
-from highlight_comment.file_manager.writer import save_json
+from highlight_comment.file_manager.writer import save_json, save_csv
 
 
 def print_comments(comments: Comments, manual_control: bool = False) -> None:
@@ -16,10 +18,14 @@ def print_comments(comments: Comments, manual_control: bool = False) -> None:
     :param comments: Iterable Comments
     :param manual_control: wait input before obtaining next record if True
     """
-    for comment in comments:
-        print(f'{comment}')
-        print('')
+    for i, comment in enumerate(comments):
+        print(f'Comment #{i}:\n{json.dumps(comment, indent=4, ensure_ascii=False)}')
+        if manual_control:
+            input()
 
 
-def save_comments(comments: Comments, path: Any) -> None:
-    save_json(comments, path)
+def save_comments(comments: Comments, path: Union[str, Path]) -> None:
+    if path.endswith('.csv'):
+        save_csv(comments, path)
+    else:
+        save_json(comments, path)

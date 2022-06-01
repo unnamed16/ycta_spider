@@ -20,10 +20,10 @@ class VideoData:
 @dataclass
 class Channel:
     name: str = None
-    is_antiput: int = None
+    is_anti_put: int = None
     suffix: str = None
     desc: str = None
-    channelId: str = None
+    channel_id: str = None
 
 
 Channels = List[Channel]

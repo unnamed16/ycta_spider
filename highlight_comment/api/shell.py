@@ -61,7 +61,7 @@ class Shell:
 
     def get_comments(self, source: Source, limit: int, order: SearchOrder) -> Iterator[Comment]:
         """
-        Return all comments for the specified source
+        Return all comments for the specified source\n
         :param source: description of the source where from the comments have to be obtained
         :param limit: limit of the comments to download
         :param order: sort order of the obtained data
@@ -75,7 +75,7 @@ class Shell:
             limit: int,
             order: SearchOrder) -> Iterator[Comment]:
         """
-        Return all comments for the specified source
+        Return all comments for the specified source\n
         :param sources: source descriptions list where from the comments have to be obtained
         :param limit: limit of the comments to download
         :param order: sort order of the obtained data
@@ -85,7 +85,7 @@ class Shell:
 
     def add_comment(self, source: Source, comment: str) -> Comment:
         """
-        Add specified comment to the source (it may be video, channel or another comment)
+        Add specified comment to the source (it may be video, channel or another comment)\n
         :param source: description of the source where the comment has to be placed
         :param comment: text that has to be added
         :return: added Comment
