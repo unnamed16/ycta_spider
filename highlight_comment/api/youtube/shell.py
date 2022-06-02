@@ -136,23 +136,25 @@ class Shell(CommonShell):
             is_top_level: bool = False,
             reply_count: int = 0) -> Comment:
         _comment_id = comment_json['id']
-        _video_id = comment_json['snippet']['videoId']
+        snippet = comment_json['snippet']
+        _video_id = snippet['videoId']
         _all_ids = {
             'video_id': _video_id,
             'thread_id': thread_id,
             'comment_id': _comment_id
         }
-        _text = comment_json['snippet']['textDisplay']
-        _likes = comment_json['snippet']['likeCount']
-        _published = comment_json['snippet']['publishedAt']
-        _parent = None if is_top_level else comment_json['snippet']['parentId']
-        _author_id = comment_json['snippet']['authorChannelId']['value']
+        _text = snippet['textDisplay']
+        _likes = snippet['likeCount']
+        _published = snippet['publishedAt']
+        _parent = None if is_top_level else snippet['parentId']
+        _author_id = snippet['authorChannelId']['value']
         _meta_info = {
             'is_top_level': is_top_level,
             'reply_count': reply_count,
             'publish_date': _published,
             'parent_comment_id': _parent,
-            'author_id': _author_id
+            'author_id': _author_id,
+            'author_name': snippet['authorDisplayName']
         }
         return {
             'ids': _all_ids,
