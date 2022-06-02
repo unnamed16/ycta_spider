@@ -19,9 +19,45 @@ it can be included into any other Python project as a submodule.
 
 ### Command Line Interface
 
+***info***
+
+Use this command if you want to obtain sources info from the specified platform
+
+```bash
+python cli.py info [-h]
+                   [-o OUTPUT]
+                   platform
+```
+
+Positional arguments:
+
+**platform** - platform that has to be processed
+
+Optional arguments:
+
+**-o**, **--output** OUTPUT - 
+where to store the result (url - send, file - save, print if not specified) 
+
+**-h**, **--help** - show this help message and exit
+
+
+```bash
+python cli.py info VK
+```
+
+```bash
+python cli.py info --output C:/result.json YOUTUBE
+```
+
+```bash
+python cli.py info --crawl https://myDataBaseServer.com TELEGRAM
+```
+
+---
+
 ***crawl***
 
-Use this command if you want to obtain links on comments from the specified platform
+Use this command if you want to obtain comments from the specified platform
 
 ```bash
 python cli.py crawl [-h]
@@ -61,7 +97,7 @@ python cli.py highlight --crawl https://myDataBaseServer.com --limit 10 TELEGRAM
 
 ***highlight***
 
-Use this command if you want to obtain links on highlighted comments
+Use this command if you want to obtain highlighted comments
 
 ```bash
 python cli.py highlight [-h]

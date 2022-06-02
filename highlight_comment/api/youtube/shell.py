@@ -11,7 +11,7 @@ from dateutil.parser import isoparse
 
 import requests
 
-from highlight_comment.structures.youtube import VideoData, Channel, VideoInfos, VideoInfo
+from highlight_comment.structures.youtube import Channel, VideoInfo
 from highlight_comment.api.shell import Shell as CommonShell
 from highlight_comment.api.shell import PlatformType, ResponseCode, SearchOrder
 from highlight_comment.api.shell import Source, Response, Comment
@@ -203,11 +203,11 @@ class Shell(CommonShell):
         return result
 
     @staticmethod
-    def __parse_video_ids(response_json: Dict) -> List[VideoData]:
+    def __parse_video_ids(response_json: Dict) -> List[VideoInfo]:
         return [
-            VideoData(
-                videoId=json_elem['id']['videoId'],
-                publishedAt=isoparse(json_elem['snippet']['publishedAt']),
+            VideoInfo(
+                idx=json_elem['id']['videoId'],
+                time=isoparse(json_elem['snippet']['publishedAt']),
                 title=json_elem['snippet']['title'],
                 description=json_elem['snippet']['description']
             )
@@ -273,21 +273,21 @@ class Shell(CommonShell):
         snippet = info['snippet']
         stats = info['statistics']
         return VideoInfo(
-            id=info['id'],
+            idx=info['id'],
             time=isoparse(snippet['publishedAt']),
-            channelId=snippet['channelId'],
+            channel_id=snippet['channelId'],
             title=snippet['title'],
             description=snippet['description'],
-            channelTitle=snippet['channelTitle'],
+            channel_title=snippet['channelTitle'],
             tags=snippet['tags'],
-            categoryId=int(snippet['categoryId']),
+            category_id=int(snippet['categoryId']),
             duration=info['contentDetails']['duration'],
-            viewCount=int(stats['viewCount']),
-            likeCount=int(stats['likeCount']),
-            commentCount=int(stats['commentCount']),
-            topicCategories=info['topicDetails']['topicCategories']
+            view_count=int(stats['viewCount']),
+            like_count=int(stats['likeCount']),
+            comment_count=int(stats['commentCount']),
+            topic_categories=info['topicDetails']['topicCategories']
         )
 
     @staticmethod
-    def __parse_video_info(request_json: Dict) -> VideoInfos:
+    def __parse_video_info(request_json: Dict) -> List[VideoInfo]:
         return list(map(Shell.__parse_single_video_info, request_json['items']))

@@ -12,6 +12,7 @@ from highlight_comment import adapter
 from highlight_comment.api import build
 from highlight_comment.api.shell import PlatformType
 
+INFO = 'info'
 CRAWL = 'crawl'
 HIGHLIGHT = 'highlight'
 RESPOND = 'respond'
@@ -57,6 +58,19 @@ def get_uri_message(uri: str) -> str:
 def cli() -> None:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", help="", required=True)
+
+    info = subparsers.add_parser(
+        INFO,
+        help="download sources information from the specified platform")
+    info.add_argument(
+        PLATFORM,
+        help="platform that has to be processed")
+    info.add_argument(
+        OUTPUT_SHORT,
+        OUTPUT,
+        type=str,
+        default=None,
+        help="where to store the result (url - send, file - save, print if not specified)")
 
     crawl = subparsers.add_parser(
         CRAWL,
@@ -110,12 +124,37 @@ def cli() -> None:
         help="where to store the result (url - send, file - save, print if not specified)")
 
     args = parser.parse_args()
-    if args.command == CRAWL:
+    if args.command == INFO:
+        __try_info(args.platform, args.output, args)
+    elif args.command == CRAWL:
         __try_crawl(args.platform, args.limit, args.output, args)
     elif args.command == HIGHLIGHT:
         __try_highlight(args.platform, args.limit, args.output, args)
     elif args.command == RESPOND:
         __try_respond(args.platform, args.limit, args.output, args)
+
+
+def __try_info(platform_name: str, output: str, args: argparse.Namespace) -> None:
+    if not __check_platform(platform_name):
+        return
+    output_message = get_uri_message(output)
+    uri_type = get_uri_type(output)
+    if uri_type == UriType.STDIO:
+        print(f'Print source info from {platform_name}')
+        adapter.print_info(
+            build.shell(PlatformType[platform_name]).get_sources_info()
+        )
+    elif uri_type == UriType.FILE:
+        print(f'Save source info from {platform_name} to {output_message}')
+        adapter.save_info(
+            build.shell(PlatformType[platform_name]).get_sources_info(),
+            output
+        )
+    elif uri_type == UriType.DIRECTORY:
+        print(f'Unsupportable option: save info to the folder {output_message}')
+    elif uri_type == UriType.URL:
+        print(f'Send source info from {platform_name} to {output_message}')
+        print("Arguments combination is not yet supported: " + str(args))
 
 
 def __try_crawl(platform_name: str, limit: int, output: str, args: argparse.Namespace) -> None:
@@ -127,7 +166,7 @@ def __try_crawl(platform_name: str, limit: int, output: str, args: argparse.Name
     if uri_type == UriType.STDIO:
         print(f'Print {limit_message} comments per source from {platform_name}')
         adapter.print_comments(
-            build.shell(PlatformType[platform_name]).get_comments_from_several_sources(),
+            build.shell(PlatformType[platform_name]).get_comments_from_several_sources(limit=limit),
             manual_control=limit is None
         )
     elif uri_type == UriType.FILE:

@@ -4,17 +4,25 @@ __credits__ = ['pvp']
 __maintainer__ = 'pvp'
 __date__ = '2022/05/30'
 
-import datetime as dt
 from dataclasses import dataclass
 from typing import List
 
+from highlight_comment.structures.common import SourceInfo
+
 
 @dataclass
-class VideoData:
-    videoId: str
-    publishedAt: dt.datetime
+class VideoInfo(SourceInfo):
     title: str
     description: str
+    duration: str = None
+    channel_id: str = None
+    channel_title: str = None
+    tags: List[str] = None
+    category_id: int = None
+    view_count: int = None
+    like_count: int = None
+    comment_count: int = None
+    topic_categories: List[int] = None
 
 
 @dataclass
@@ -27,23 +35,3 @@ class Channel:
 
 
 Channels = List[Channel]
-
-
-@dataclass
-class VideoInfo:
-    id: str
-    time: dt.datetime
-    channelId: str
-    title: str
-    description: str
-    channelTitle: str
-    tags: List[str]
-    categoryId: int
-    duration: str
-    viewCount: int
-    likeCount: int
-    commentCount: int
-    topicCategories: List[int]
-
-
-VideoInfos = List[VideoInfo]
