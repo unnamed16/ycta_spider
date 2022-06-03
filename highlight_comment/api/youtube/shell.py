@@ -36,6 +36,25 @@ class Shell(CommonShell):
         self.__client_secret = platform_config['client_secret']
         self.__access_token = platform_config['access_token']
 
+    def get_authorization_link(self) -> str:
+        return str(
+            f"{self.__OAUTH2_URL}?"
+            f"client_id={self.__client_id}&"
+            f"response_type=code&"
+            f"scope={self.__SCOPE}&"
+            f"access_type=offline&redirect_uri={self.__REDIRECT_URI}"
+        )
+
+    def get_access_token(self, authorization_code: str) -> Dict[str, str]:
+        access_token = requests.post(self.__TOKEN_URL, data={
+            "client_id": self.__client_id,
+            "client_secret": self.__client_secret,
+            "code": authorization_code,
+            "redirect_uri": self.__REDIRECT_URI,
+            "grant_type": "authorization_code"
+        })
+        return json.loads(access_token.text)
+
     @staticmethod
     def __comment_requester(next_page_token, query, headers):
         response = requests.get(f'{query}&pageToken={next_page_token}', headers=headers)
@@ -161,37 +180,58 @@ class Shell(CommonShell):
             'likes': _likes
         }
 
-    def get_authorization_link(self) -> str:
-        return str(
-            f"{self.__OAUTH2_URL}?"
-            f"client_id={self.__client_id}&"
-            f"response_type=code&"
-            f"scope={self.__SCOPE}&"
-            f"access_type=offline&redirect_uri={self.__REDIRECT_URI}"
-        )
+    def get_source_info(
+            self,
+            source: Source,
+            limit: int = 10,
+            order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
+        """
+        Return info for the specified source or sub sources if the source is not a leaf\n
+        :param source: ('videoId', 'MyVideoId') or ('channelId', 'MyChannelId')
+        :param limit: limit of the sub-sources to process
+        :param order: sort order of the obtained data (date, rating, title)
+        :return: Generator of the VideoInfo
+        """
+        if source[0] == 'videoId':
+            response = self.__get_videos_info([source[1]])
+        else:
+            response = self.__get_video_ids(Channel(channel_id=source[1]), limit=limit, order=order)
+            if response['code'] == ResponseCode.OK:
+                response = self.__get_videos_info(response['result'])
+        if response['code'] == ResponseCode.OK:
+            for source_info in response['result']:
+                yield source_info
 
-    def get_access_token(self, authorization_code: str) -> Dict[str, str]:
-        access_token = requests.post(self.__TOKEN_URL, data={
-            "client_id": self.__client_id,
-            "client_secret": self.__client_secret,
-            "code": authorization_code,
-            "redirect_uri": self.__REDIRECT_URI,
-            "grant_type": "authorization_code"
-        })
-        return json.loads(access_token.text)
+    def get_sources_info(
+            self,
+            sources: List[Source] = None,
+            limit: int = 10,
+            order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
+        """
+        Return info for the several specified sources\n
+        :param sources: source descriptions list for which the info has to be obtained
+        :param limit: limit of the comments to download
+        :param order: sort order of the obtained data
+        :return: Generator of the VideoInfo
+        """
+        if sources is None:
+            sources = self.__sources
+        for source in sources:
+            for source_info in self.get_source_info(source, limit=limit, order=order):
+                yield source_info
 
-    def get_video_ids(self, channel: Channel, max_results=10, order=SearchOrder.DATE) -> Response:
+    def __get_video_ids(self, channel: Channel, limit: int = 10, order: SearchOrder = SearchOrder.DATE) -> Response:
         part = 'snippet'
         content_type = 'video'
         func = 'search'
-        if channel.channelId is None:
-            channel.channelId = self.get_channel_id(channel.name, channel.suffix)['result']
-        channel_id = channel.channelId
+        if channel.channel_id is None:
+            channel.channel_id = self.get_channel_id(channel.name, channel.suffix)['result']
+        channel_id = channel.channel_id
         url = str(
             f'{self.__V3_URL}{func}?'
             f'part={part}&'
             f'channelId={channel_id}&'
-            f'maxResults={max_results}&'
+            f'maxResults={limit}&'
             f'order={order.value}&'
             f'type={content_type}&'
             f'key={self.__api_key}'
@@ -259,7 +299,7 @@ class Shell(CommonShell):
                 'response.text': r.text
             }
 
-    def get_videos_info(self, videos: List[str]) -> Response:
+    def __get_videos_info(self, videos: List[str]) -> Response:
         func = 'videos'
         part = 'statistics,contentDetails,id,liveStreamingDetails,localizations,player,' \
                'recordingDetails,snippet,status,topicDetails'

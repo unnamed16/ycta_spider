@@ -66,6 +66,11 @@ def cli() -> None:
         PLATFORM,
         help="platform that has to be processed")
     info.add_argument(
+        LIMIT_SHORT,
+        LIMIT,
+        type=int,
+        help="limit of the records obtained per source, update infinitely on Enter key if not specified.")
+    info.add_argument(
         OUTPUT_SHORT,
         OUTPUT,
         type=str,
@@ -125,7 +130,7 @@ def cli() -> None:
 
     args = parser.parse_args()
     if args.command == INFO:
-        __try_info(args.platform, args.output, args)
+        __try_info(args.platform, args.limit, args.output, args)
     elif args.command == CRAWL:
         __try_crawl(args.platform, args.limit, args.output, args)
     elif args.command == HIGHLIGHT:
@@ -134,7 +139,7 @@ def cli() -> None:
         __try_respond(args.platform, args.limit, args.output, args)
 
 
-def __try_info(platform_name: str, output: str, args: argparse.Namespace) -> None:
+def __try_info(platform_name: str, limit: int, output: str, args: argparse.Namespace) -> None:
     if not __check_platform(platform_name):
         return
     output_message = get_uri_message(output)
@@ -142,12 +147,13 @@ def __try_info(platform_name: str, output: str, args: argparse.Namespace) -> Non
     if uri_type == UriType.STDIO:
         print(f'Print source info from {platform_name}')
         adapter.print_info(
-            build.shell(PlatformType[platform_name]).get_sources_info()
+            build.shell(PlatformType[platform_name]).get_sources_info(limit=limit),
+            manual_control=limit is None
         )
     elif uri_type == UriType.FILE:
         print(f'Save source info from {platform_name} to {output_message}')
         adapter.save_info(
-            build.shell(PlatformType[platform_name]).get_sources_info(),
+            build.shell(PlatformType[platform_name]).get_sources_info(limit=limit),
             output
         )
     elif uri_type == UriType.DIRECTORY:

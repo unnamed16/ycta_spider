@@ -33,7 +33,8 @@ def print_info(info: Iterable[SourceInfo], manual_control: bool = False) -> None
     :param manual_control: wait input before obtaining next record if True
     """
     for i, source_info in enumerate(info):
-        print(f'Source Info #{i}:\n{json.dumps(source_info, indent=4, ensure_ascii=False)}')
+        print(f'Source Info #{i}:\n')
+        print('\n'.join(f'\t{key} = {val}' for key, val in source_info.__dict__.items()))
         if manual_control:
             input()
 
@@ -75,8 +76,14 @@ def save_comments(comments: Comments, path: Union[str, Path]) -> None:
 
 def save_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
     """
-    Save Sources Info to file (json only)
+    Save Sources Info to file (csv only)
     :param info: Iterable Sources Info
     :param path: string with the path to an output file
     """
-    save_json(list(info), path)
+    save_csv(
+        (
+            source_info.__dict__.values()
+            for source_info in info
+        ),
+        path
+    )
