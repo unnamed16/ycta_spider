@@ -35,7 +35,7 @@ class SearchOrder(Enum):
     VIEW_COUNT = 'viewCount'
 
 
-Source = Tuple[str, ...]  # TODO: Make it a datastructure
+Source = Tuple[str, Any]  # TODO: Make it a datastructure
 NumLikes = int
 VideoId = str
 ThreadId = str

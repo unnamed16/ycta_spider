@@ -25,6 +25,7 @@ class Shell(CommonShell):
     __SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl"
     __REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
     __TOKEN_URL = "https://www.googleapis.com/oauth2/v4/token"
+    __DEFAULT_INFO_LIMIT = 100
 
     def __init__(self):
         super().__init__()
@@ -72,7 +73,7 @@ class Shell(CommonShell):
         Return all comments for the specified source\n
         :param source: ('videoId', 'MyVideoId')
         :param limit: <= 100
-        :param order: time or relevance
+        :param order: time (starts with more recent) or relevance
         :return: generator of comments
         """
         func = 'commentThreads'
@@ -185,21 +186,29 @@ class Shell(CommonShell):
     def get_source_info(
             self,
             source: Source,
-            limit: int = 10,
+            limit: int = __DEFAULT_INFO_LIMIT,
             order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
         """
         Return info for the specified source or sub sources if the source is not a leaf\n
-        :param source: ('videoId', 'MyVideoId') or ('channelId', 'MyChannelId')
+        :param source: ('videoId', 'MyVideoId'), ('videoIdList', [list of 'video ids'])
+        or ('channelId', 'MyChannelId')
         :param limit: limit of the sub-sources to process
-        :param order: sort order of the obtained data (date, rating, title)
+        :param order: sort order of the obtained data (date, rating, title), used only for channel source
         :return: Generator of the VideoInfo
         """
-        if source[0] == 'videoId':
-            response = self.__get_videos_info([source[1]])
-        else:
-            response = self.__get_video_ids(Channel(channel_id=source[1]), limit=limit, order=order)
+        source_type, source_value = source
+        if source_type == 'videoId':
+            response = self.__get_videos_info([source_value])
+        elif source_type == 'videoIdList':
+            videos_num = len(source_value)
+            assert videos_num <= limit, f'the limit is {limit}, video id list has length {videos_num}'
+            response = self.__get_videos_info(source_value)
+        elif source_type == 'channelId':
+            response = self.__get_video_ids(Channel(channel_id=source_value), limit=limit, order=order)
             if response['code'] == ResponseCode.OK:
                 response = self.__get_videos_info([video_info.idx for video_info in response['result']])
+        else:
+            raise KeyError(f'unknown source type: {source_type}')
         if response['code'] == ResponseCode.OK:
             for source_info in response['result']:
                 yield source_info
@@ -207,7 +216,7 @@ class Shell(CommonShell):
     def get_sources_info(
             self,
             sources: List[Source] = None,
-            limit: int = 10,
+            limit: int = __DEFAULT_INFO_LIMIT,
             order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
         """
         Return info for the several specified sources\n
@@ -225,7 +234,8 @@ class Shell(CommonShell):
         print('\r ', end='')
         print('\r', end='')
 
-    def __get_video_ids(self, channel: Channel, limit: int = 10, order: SearchOrder = SearchOrder.DATE) -> Response:
+    def __get_video_ids(self, channel: Channel, limit: int = __DEFAULT_INFO_LIMIT,
+                        order: SearchOrder = SearchOrder.DATE) -> Response:
         part = 'snippet'
         content_type = 'video'
         func = 'search'
