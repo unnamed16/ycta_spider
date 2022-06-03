@@ -6,7 +6,6 @@ __date__ = '2020/05/19'
 
 import os
 import json
-from csv import writer
 from pathlib import Path
 from typing import Any, AnyStr, Union, Iterable
 

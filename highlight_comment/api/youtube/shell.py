@@ -106,7 +106,7 @@ class Shell(CommonShell):
         if sources is None:
             sources = self.__sources
         for i, source in enumerate(sources):
-            print(f'\r{i}/{len(sources)}\tDownloading comments from {source}', end='')
+            print(f'\r{i+1}/{len(sources)}\tDownloading comments from {source}', end='')
             for comment in self.get_comments(source, limit, order=order):
                 yield comment
         print('\r ', end='')
@@ -218,9 +218,12 @@ class Shell(CommonShell):
         """
         if sources is None:
             sources = self.__sources
-        for source in sources:
+        for i, source in enumerate(sources):
+            print(f'\r{i+1}/{len(sources)}\tDownloading comments from {source}', end='')
             for source_info in self.get_source_info(source, limit=limit, order=order):
                 yield source_info
+        print('\r ', end='')
+        print('\r', end='')
 
     def __get_video_ids(self, channel: Channel, limit: int = 10, order: SearchOrder = SearchOrder.DATE) -> Response:
         part = 'snippet'

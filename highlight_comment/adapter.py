@@ -5,7 +5,6 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/06/01'
 
 import json
-import re
 from pathlib import Path
 from typing import Union, Iterable
 
@@ -48,13 +47,14 @@ def save_comments(comments: Comments, path: Union[str, Path]) -> None:
     if path.endswith('.csv'):
         save_csv(
             data=[
-                [' '.join([f'{ids_key}={ids_value}'
-                           for ids_key, ids_value in comment['ids'].items()]),
-                 comment['text'],
-                 ' '.join([f'{meta_key}={meta_value}'
-                           for meta_key, meta_value in comment['meta'].items()]),
-                 comment['likes'], len(comment.get('replies', ''))
-            ] for comment in comments],
+                [
+                    ' '.join([f'{ids_key}={ids_value}' for ids_key, ids_value in comment['ids'].items()]),
+                    comment['text'],
+                    ' '.join([f'{meta_key}={meta_value}' for meta_key, meta_value in comment['meta'].items()]),
+                    comment['likes'], len(comment.get('replies', ''))
+                ]
+                for comment in comments
+            ],
             path=path,
             headers=('ids', 'text', 'meta', 'likes', 'replies')
         )
