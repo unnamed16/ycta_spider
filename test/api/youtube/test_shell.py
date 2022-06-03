@@ -18,8 +18,8 @@ class YoutubeShellTestCase(TestCase):
         self.assertEqual(PlatformType.YOUTUBE, shell.platform_type)
 
     def test_get_channel_id(self) -> None:
-        self.assertEqual('UCjWy2g76QZf7QLEwx4cB46g', Shell.get_channel_id('arestovych')['result'])
-        self.assertEqual(ResponseCode.ERROR, Shell.get_channel_id('NonExistantChannel')['code'])
+        self.assertEqual('UCjWy2g76QZf7QLEwx4cB46g', Shell.get_channel_id('arestovych', 'c')['result'])
+        self.assertEqual(ResponseCode.ERROR, Shell.get_channel_id('NonExistantChannel', 'c')['code'])
 
     def test_get_comments(self) -> None:
         shell = Shell()
