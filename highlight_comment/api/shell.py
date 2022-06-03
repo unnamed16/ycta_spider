@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Tuple, Dict, Union, Any, Iterator, List
 
 from highlight_comment.file_manager.reader import read_config
+from highlight_comment.structures.common import SourceInfo
 
 
 class PlatformType(Enum):
@@ -34,7 +35,7 @@ class SearchOrder(Enum):
     VIEW_COUNT = 'viewCount'
 
 
-Source = Tuple[str, ...]
+Source = Tuple[str, ...]  # TODO: Make it a datastructure
 NumLikes = int
 VideoId = str
 ThreadId = str
@@ -60,6 +61,26 @@ class Shell:
     def platform_type(self) -> PlatformType:
         return self.__platform_type
 
+    def get_source_info(self, source: Source, limit: int, order: SearchOrder) -> Iterator[SourceInfo]:
+        """
+        Return info for the specified source or sub sources if the source is not a leaf\n
+        :param source: description of the source where from the comments have to be obtained
+        :param limit: limit of the sub-sources to process
+        :param order: sort order of the obtained data
+        :return: Generator of the SourceInfo
+        """
+        pass
+
+    def get_sources_info(self, sources: List[Source], limit: int, order: SearchOrder) -> Iterator[SourceInfo]:
+        """
+        Return info for the several specified sources\n
+        :param sources: source descriptions list for which the info has to be obtained
+        :param limit: limit of the comments to download
+        :param order: sort order of the obtained data
+        :return: Generator of the SourceInfo
+        """
+        pass
+
     def get_comments(self, source: Source, limit: int, order: SearchOrder) -> Iterator[Comment]:
         """
         Return all comments for the specified source\n
@@ -76,7 +97,7 @@ class Shell:
             limit: int,
             order: SearchOrder) -> Iterator[Comment]:
         """
-        Return all comments for the specified source\n
+        Return all comments for the several specified sources\n
         :param sources: source descriptions list where from the comments have to be obtained
         :param limit: limit of the comments to download
         :param order: sort order of the obtained data

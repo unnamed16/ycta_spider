@@ -11,7 +11,7 @@ from dateutil.parser import isoparse
 
 import requests
 
-from highlight_comment.structures.youtube import VideoData, Channel, VideoInfos, VideoInfo
+from highlight_comment.structures.youtube import Channel, VideoInfo
 from highlight_comment.api.shell import Shell as CommonShell
 from highlight_comment.api.shell import PlatformType, ResponseCode, SearchOrder
 from highlight_comment.api.shell import Source, Response, Comment
@@ -35,6 +35,25 @@ class Shell(CommonShell):
         self.__client_id = platform_config['client_id']
         self.__client_secret = platform_config['client_secret']
         self.__access_token = platform_config['access_token']
+
+    def get_authorization_link(self) -> str:
+        return str(
+            f"{self.__OAUTH2_URL}?"
+            f"client_id={self.__client_id}&"
+            f"response_type=code&"
+            f"scope={self.__SCOPE}&"
+            f"access_type=offline&redirect_uri={self.__REDIRECT_URI}"
+        )
+
+    def get_access_token(self, authorization_code: str) -> Dict[str, str]:
+        access_token = requests.post(self.__TOKEN_URL, data={
+            "client_id": self.__client_id,
+            "client_secret": self.__client_secret,
+            "code": authorization_code,
+            "redirect_uri": self.__REDIRECT_URI,
+            "grant_type": "authorization_code"
+        })
+        return json.loads(access_token.text)
 
     @staticmethod
     def __comment_requester(next_page_token, query, headers):
@@ -87,7 +106,7 @@ class Shell(CommonShell):
         if sources is None:
             sources = self.__sources
         for i, source in enumerate(sources):
-            print(f'\r{i}/{len(sources)}\tDownloading comments from {source}', end='')
+            print(f'\r{i+1}/{len(sources)}\tDownloading comments from {source}', end='')
             for comment in self.get_comments(source, limit, order=order):
                 yield comment
         print('\r ', end='')
@@ -136,23 +155,25 @@ class Shell(CommonShell):
             is_top_level: bool = False,
             reply_count: int = 0) -> Comment:
         _comment_id = comment_json['id']
-        _video_id = comment_json['snippet']['videoId']
+        snippet = comment_json['snippet']
+        _video_id = snippet['videoId']
         _all_ids = {
             'video_id': _video_id,
             'thread_id': thread_id,
             'comment_id': _comment_id
         }
-        _text = comment_json['snippet']['textDisplay']
-        _likes = comment_json['snippet']['likeCount']
-        _published = comment_json['snippet']['publishedAt']
-        _parent = None if is_top_level else comment_json['snippet']['parentId']
-        _author_id = comment_json['snippet']['authorChannelId']['value']
+        _text = snippet['textDisplay']
+        _likes = snippet['likeCount']
+        _published = snippet['publishedAt']
+        _parent = None if is_top_level else snippet['parentId']
+        _author_id = snippet['authorChannelId']['value']
         _meta_info = {
             'is_top_level': is_top_level,
             'reply_count': reply_count,
             'publish_date': _published,
             'parent_comment_id': _parent,
-            'author_id': _author_id
+            'author_id': _author_id,
+            'author_name': snippet['authorDisplayName']
         }
         return {
             'ids': _all_ids,
@@ -161,37 +182,61 @@ class Shell(CommonShell):
             'likes': _likes
         }
 
-    def get_authorization_link(self) -> str:
-        return str(
-            f"{self.__OAUTH2_URL}?"
-            f"client_id={self.__client_id}&"
-            f"response_type=code&"
-            f"scope={self.__SCOPE}&"
-            f"access_type=offline&redirect_uri={self.__REDIRECT_URI}"
-        )
+    def get_source_info(
+            self,
+            source: Source,
+            limit: int = 10,
+            order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
+        """
+        Return info for the specified source or sub sources if the source is not a leaf\n
+        :param source: ('videoId', 'MyVideoId') or ('channelId', 'MyChannelId')
+        :param limit: limit of the sub-sources to process
+        :param order: sort order of the obtained data (date, rating, title)
+        :return: Generator of the VideoInfo
+        """
+        if source[0] == 'videoId':
+            response = self.__get_videos_info([source[1]])
+        else:
+            response = self.__get_video_ids(Channel(channel_id=source[1]), limit=limit, order=order)
+            if response['code'] == ResponseCode.OK:
+                response = self.__get_videos_info([video_info.idx for video_info in response['result']])
+        if response['code'] == ResponseCode.OK:
+            for source_info in response['result']:
+                yield source_info
 
-    def get_access_token(self, authorization_code: str) -> Dict[str, str]:
-        access_token = requests.post(self.__TOKEN_URL, data={
-            "client_id": self.__client_id,
-            "client_secret": self.__client_secret,
-            "code": authorization_code,
-            "redirect_uri": self.__REDIRECT_URI,
-            "grant_type": "authorization_code"
-        })
-        return json.loads(access_token.text)
+    def get_sources_info(
+            self,
+            sources: List[Source] = None,
+            limit: int = 10,
+            order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
+        """
+        Return info for the several specified sources\n
+        :param sources: source descriptions list for which the info has to be obtained
+        :param limit: limit of the comments to download
+        :param order: sort order of the obtained data
+        :return: Generator of the VideoInfo
+        """
+        if sources is None:
+            sources = self.__sources
+        for i, source in enumerate(sources):
+            print(f'\r{i+1}/{len(sources)}\tDownloading comments from {source}', end='')
+            for source_info in self.get_source_info(source, limit=limit, order=order):
+                yield source_info
+        print('\r ', end='')
+        print('\r', end='')
 
-    def get_video_ids(self, channel: Channel, max_results=10, order=SearchOrder.DATE) -> Response:
+    def __get_video_ids(self, channel: Channel, limit: int = 10, order: SearchOrder = SearchOrder.DATE) -> Response:
         part = 'snippet'
         content_type = 'video'
         func = 'search'
-        if channel.channelId is None:
-            channel.channelId = self.get_channel_id(channel.name, channel.suffix)['result']
-        channel_id = channel.channelId
+        if channel.channel_id is None:
+            channel.channel_id = self.get_channel_id(channel.name, channel.suffix)['result']
+        channel_id = channel.channel_id
         url = str(
             f'{self.__V3_URL}{func}?'
             f'part={part}&'
             f'channelId={channel_id}&'
-            f'maxResults={max_results}&'
+            f'maxResults={limit}&'
             f'order={order.value}&'
             f'type={content_type}&'
             f'key={self.__api_key}'
@@ -203,11 +248,11 @@ class Shell(CommonShell):
         return result
 
     @staticmethod
-    def __parse_video_ids(response_json: Dict) -> List[VideoData]:
+    def __parse_video_ids(response_json: Dict) -> List[VideoInfo]:
         return [
-            VideoData(
-                videoId=json_elem['id']['videoId'],
-                publishedAt=isoparse(json_elem['snippet']['publishedAt']),
+            VideoInfo(
+                idx=json_elem['id']['videoId'],
+                time=isoparse(json_elem['snippet']['publishedAt']),
                 title=json_elem['snippet']['title'],
                 description=json_elem['snippet']['description']
             )
@@ -259,7 +304,7 @@ class Shell(CommonShell):
                 'response.text': r.text
             }
 
-    def get_videos_info(self, videos: List[str]) -> Response:
+    def __get_videos_info(self, videos: List[str]) -> Response:
         func = 'videos'
         part = 'statistics,contentDetails,id,liveStreamingDetails,localizations,player,' \
                'recordingDetails,snippet,status,topicDetails'
@@ -270,24 +315,28 @@ class Shell(CommonShell):
 
     @staticmethod
     def __parse_single_video_info(info: Dict) -> VideoInfo:
-        snippet = info['snippet']
-        stats = info['statistics']
+        snippet = info.get('snippet', dict())
+        stats = info.get('statistics', dict())
+
+        def __stats_int_or_none(key):
+            return int(stats[key]) if key in stats else None
+
         return VideoInfo(
-            id=info['id'],
-            time=isoparse(snippet['publishedAt']),
-            channelId=snippet['channelId'],
-            title=snippet['title'],
-            description=snippet['description'],
-            channelTitle=snippet['channelTitle'],
-            tags=snippet['tags'],
-            categoryId=int(snippet['categoryId']),
-            duration=info['contentDetails']['duration'],
-            viewCount=int(stats['viewCount']),
-            likeCount=int(stats['likeCount']),
-            commentCount=int(stats['commentCount']),
-            topicCategories=info['topicDetails']['topicCategories']
+            idx=info.get('id', None),
+            time=isoparse(snippet['publishedAt']) if 'publishedAt' in snippet else None,
+            channel_id=snippet.get('channelId', None),
+            title=snippet.get('title', None),
+            description=snippet.get('description', None),
+            channel_title=snippet.get('channelTitle', None),
+            tags=snippet.get('tags', list()),
+            category_id=int(snippet['categoryId']) if 'categoryId' in snippet else None,
+            duration=info.get('contentDetails', dict()).get('duration', None),
+            view_count=__stats_int_or_none('viewCount'),
+            like_count=__stats_int_or_none('likeCount'),
+            comment_count=__stats_int_or_none('commentCount'),
+            topic_categories=info.get('topicDetails', dict()).get('topicCategories', None)
         )
 
     @staticmethod
-    def __parse_video_info(request_json: Dict) -> VideoInfos:
+    def __parse_video_info(request_json: Dict) -> List[VideoInfo]:
         return list(map(Shell.__parse_single_video_info, request_json['items']))
