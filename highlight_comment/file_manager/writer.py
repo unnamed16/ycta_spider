@@ -10,6 +10,8 @@ from csv import writer
 from pathlib import Path
 from typing import Any, AnyStr, Union, Iterable
 
+import pandas as pd
+
 
 def save_file(data: AnyStr, path: Union[str, Path]) -> None:
     """
@@ -41,7 +43,4 @@ def save_csv(data: Iterable[Iterable[Any]], path: Union[str, Path], headers: Ite
     """
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
-    with open(path, 'w', newline='', encoding='utf-8') as f:
-        if headers is not None:
-            writer(f, delimiter='¬').writerow(headers)
-        writer(f, delimiter='¬').writerows(data)
+    pd.DataFrame(data=data, columns=headers).to_csv(path, sep=u'\001', index=False, line_terminator='\n')

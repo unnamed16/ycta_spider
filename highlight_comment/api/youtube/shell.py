@@ -155,23 +155,25 @@ class Shell(CommonShell):
             is_top_level: bool = False,
             reply_count: int = 0) -> Comment:
         _comment_id = comment_json['id']
-        _video_id = comment_json['snippet']['videoId']
+        snippet = comment_json['snippet']
+        _video_id = snippet['videoId']
         _all_ids = {
             'video_id': _video_id,
             'thread_id': thread_id,
             'comment_id': _comment_id
         }
-        _text = comment_json['snippet']['textDisplay']
-        _likes = comment_json['snippet']['likeCount']
-        _published = comment_json['snippet']['publishedAt']
-        _parent = None if is_top_level else comment_json['snippet']['parentId']
-        _author_id = comment_json['snippet']['authorChannelId']['value']
+        _text = snippet['textDisplay']
+        _likes = snippet['likeCount']
+        _published = snippet['publishedAt']
+        _parent = None if is_top_level else snippet['parentId']
+        _author_id = snippet['authorChannelId']['value']
         _meta_info = {
             'is_top_level': is_top_level,
             'reply_count': reply_count,
             'publish_date': _published,
             'parent_comment_id': _parent,
-            'author_id': _author_id
+            'author_id': _author_id,
+            'author_name': snippet['authorDisplayName']
         }
         return {
             'ids': _all_ids,
@@ -310,22 +312,26 @@ class Shell(CommonShell):
 
     @staticmethod
     def __parse_single_video_info(info: Dict) -> VideoInfo:
-        snippet = info['snippet']
-        stats = info['statistics']
+        snippet = info.get('snippet', dict())
+        stats = info.get('statistics', dict())
+
+        def __stats_int_or_none(key):
+            return int(stats[key]) if key in stats else None
+
         return VideoInfo(
-            idx=info['id'],
-            time=isoparse(snippet['publishedAt']),
-            channel_id=snippet['channelId'],
-            title=snippet['title'],
-            description=snippet['description'],
-            channel_title=snippet['channelTitle'],
-            tags=snippet['tags'],
-            category_id=int(snippet['categoryId']),
-            duration=info['contentDetails']['duration'],
-            view_count=int(stats['viewCount']),
-            like_count=int(stats['likeCount']),
-            comment_count=int(stats['commentCount']),
-            topic_categories=info['topicDetails']['topicCategories']
+            idx=info.get('id', None),
+            time=isoparse(snippet['publishedAt']) if 'publishedAt' in snippet else None,
+            channel_id=snippet.get('channelId', None),
+            title=snippet.get('title', None),
+            description=snippet.get('description', None),
+            channel_title=snippet.get('channelTitle', None),
+            tags=snippet.get('tags', list()),
+            category_id=int(snippet['categoryId']) if 'categoryId' in snippet else None,
+            duration=info.get('contentDetails', dict()).get('duration', None),
+            view_count=__stats_int_or_none('viewCount'),
+            like_count=__stats_int_or_none('likeCount'),
+            comment_count=__stats_int_or_none('commentCount'),
+            topic_categories=info.get('topicDetails', dict()).get('topicCategories', None)
         )
 
     @staticmethod
