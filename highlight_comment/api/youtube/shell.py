@@ -199,7 +199,7 @@ class Shell(CommonShell):
         else:
             response = self.__get_video_ids(Channel(channel_id=source[1]), limit=limit, order=order)
             if response['code'] == ResponseCode.OK:
-                response = self.__get_videos_info(response['result'])
+                response = self.__get_videos_info([video_info.idx for video_info in response['result']])
         if response['code'] == ResponseCode.OK:
             for source_info in response['result']:
                 yield source_info

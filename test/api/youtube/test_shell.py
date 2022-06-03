@@ -28,13 +28,12 @@ class YoutubeShellTestCase(TestCase):
 
     def test_add_comments(self) -> None:
         shell = Shell()
-        query = shell.add_comment('videoId=MILSirUni5E', 'test')
+        query = shell.add_comment(('videoId', 'MILSirUni5E'), 'test')
         self.assertEqual(ResponseCode.OK, query['code'])
         self.assertIn('result', query)
 
-    def test_get_video_ids(self) -> None:
+    def test_get_source_info(self) -> None:
         shell = Shell()
         channel_id = 'UCBVjMGOIkavEAhyqpxJ73Dw'
-        query = shell.get_video_ids(Channel(channelId=channel_id))
-        self.assertEqual(ResponseCode.OK, query['code'])
-        self.assertIn('result', query)
+        sources_info = list(shell.get_source_info(('channelId', channel_id), limit=10))
+        self.assertEqual(10, len(sources_info))
