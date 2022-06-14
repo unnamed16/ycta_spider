@@ -73,7 +73,7 @@ def save_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
         source_info.__dict__.values()
         for source_info in info
     ]
-    headers = info[0].__dict__.keys() if info else []
+    headers = info[0].__dict__.keys() if info else []  # TODO: this may work not proper if there are different headers
     save_csv(
         data=data,
         path=path,
