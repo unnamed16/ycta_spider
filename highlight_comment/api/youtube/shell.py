@@ -228,7 +228,7 @@ class Shell(CommonShell):
         if sources is None:
             sources = self.__sources
         for i, source in enumerate(sources):
-            print(f'\r{i+1}/{len(sources)}\tDownloading comments from {source}', end='')
+            print(f'\r{i+1}/{len(sources)}\tDownloading info from {source}', end='')
             for source_info in self.get_source_info(source, limit=limit, order=order):
                 yield source_info
         print('\r ', end='')
