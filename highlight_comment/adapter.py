@@ -32,7 +32,7 @@ def print_info(info: Iterable[SourceInfo], manual_control: bool = False) -> None
     :param manual_control: wait input before obtaining next record if True
     """
     for i, source_info in enumerate(info):
-        print(f'Source Info #{i}:\n')
+        print(f'\nSource Info #{i}:\n')
         print('\n'.join(f'\t{key} = {val}' for key, val in source_info.__dict__.items()))
         if manual_control:
             input()
