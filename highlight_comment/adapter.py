@@ -68,10 +68,14 @@ def save_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
     :param info: Iterable Sources Info
     :param path: string with the path to an output file
     """
+    info = list(info)
+    data = [
+        source_info.__dict__.values()
+        for source_info in info
+    ]
+    headers = info[0].__dict__.keys() if info else []
     save_csv(
-        (
-            source_info.__dict__.values()
-            for source_info in info
-        ),
-        path
+        data=data,
+        path=path,
+        headers=headers
     )
