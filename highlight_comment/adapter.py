@@ -68,7 +68,7 @@ def save_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
     :param info: Iterable Sources Info
     :param path: string with the path to an output file
     """
-    info = list(info)
+    info = list(info)  # TODO: this will take additional memory, we can make it much more effective if not use list.
     data = [
         source_info.__dict__.values()
         for source_info in info
