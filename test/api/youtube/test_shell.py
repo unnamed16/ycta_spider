@@ -36,7 +36,12 @@ class YoutubeShellTestCase(TestCase):
         channel_id = 'UCBVjMGOIkavEAhyqpxJ73Dw'
         sources_info = list(shell.get_source_info(('channelId', channel_id), limit=10))
         self.assertEqual(10, len(sources_info))
-
+        sources_info = list(shell.get_source_info(('channelId', channel_id), limit=1))
+        self.assertEqual(1, len(sources_info))
+        sources_info = list(shell.get_source_info(('channelId', channel_id), limit=50))
+        self.assertEqual(50, len(sources_info))
+        sources_info = list(shell.get_source_info(('channelId', channel_id), limit=100))
+        self.assertEqual(100, len(sources_info))
         video_ids = ["MzwD0QlSajk", "zuHjb1lt5QE", "9OuGP9TjTis"]  # the last video should fail to fetch
         sources_info = list(shell.get_sources_info([
             ('videoId', video_ids[2]), ('videoIdList', video_ids)]))

@@ -25,7 +25,7 @@ class Shell(CommonShell):
     __SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl"
     __REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
     __TOKEN_URL = "https://www.googleapis.com/oauth2/v4/token"
-    __DEFAULT_INFO_LIMIT = 100
+    __DEFAULT_INFO_LIMIT = 50
 
     def __init__(self):
         super().__init__()
@@ -234,8 +234,12 @@ class Shell(CommonShell):
         print('\r ', end='')
         print('\r', end='')
 
-    def __get_video_ids(self, channel: Channel, limit: int = __DEFAULT_INFO_LIMIT,
-                        order: SearchOrder = SearchOrder.DATE) -> Response:
+    def __get_video_ids(
+            self,
+            channel: Channel,
+            limit: int = __DEFAULT_INFO_LIMIT,
+            order: SearchOrder = SearchOrder.DATE,
+            page_token: str = '') -> Response:
         part = 'snippet'
         content_type = 'video'
         func = 'search'
@@ -246,15 +250,27 @@ class Shell(CommonShell):
             f'{self.__V3_URL}{func}?'
             f'part={part}&'
             f'channelId={channel_id}&'
-            f'maxResults={limit}&'
+            f'maxResults={min(limit, self.__DEFAULT_INFO_LIMIT)}&'
             f'order={order.value}&'
             f'type={content_type}&'
-            f'key={self.__api_key}'
+            f'key={self.__api_key}&'
+            f'pageToken={page_token}'
         )
         req = requests.get(url)
         result = Shell.__parse(req, Shell.__parse_video_ids)
         if result['code'] == ResponseCode.ERROR:
             result['message'] = f'failed to find videos on {channel_id}'
+        elif result['code'] == ResponseCode.OK:
+            rest_limit = limit - self.__DEFAULT_INFO_LIMIT
+            if rest_limit > 0:
+                next_page = self.__get_video_ids(
+                    channel,
+                    limit=rest_limit,
+                    order=order,
+                    page_token=req.json()['nextPageToken']
+                )
+                if next_page['code'] == ResponseCode.OK:
+                    result['result'].extend(next_page['result'])
         return result
 
     @staticmethod
@@ -316,12 +332,30 @@ class Shell(CommonShell):
 
     def __get_videos_info(self, videos: List[str]) -> Response:
         func = 'videos'
-        part = 'statistics,contentDetails,id,liveStreamingDetails,localizations,player,' \
-               'recordingDetails,snippet,status,topicDetails'
-        ids = ','.join(videos)
-        url = f'{self.__V3_URL}{func}?part={part}&id={ids}&key={self.__api_key}'
-        req = requests.get(url, headers=self.common_headers)
-        return self.__parse(req, self.__parse_video_info)
+        part = ','.join([
+            'statistics',
+            'contentDetails',
+            'id',
+            'liveStreamingDetails',
+            'localizations,player',
+            'recordingDetails',
+            'snippet',
+            'status',
+            'topicDetails'
+        ])
+        result = None
+        for i in range(0, len(videos), self.__DEFAULT_INFO_LIMIT):
+            ids = ','.join(videos[i:min(len(videos), i + self.__DEFAULT_INFO_LIMIT)])
+            url = f'{self.__V3_URL}{func}?part={part}&id={ids}&key={self.__api_key}'
+            req = requests.get(url, headers=self.common_headers)
+            batch_result = self.__parse(req, self.__parse_video_info)
+            if batch_result['code'] != ResponseCode.OK:
+                return batch_result
+            if result is None:
+                result = batch_result
+            else:
+                result['result'].extend(batch_result['result'])
+        return result
 
     @staticmethod
     def __parse_single_video_info(info: Dict) -> VideoInfo:
