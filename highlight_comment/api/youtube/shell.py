@@ -60,7 +60,7 @@ class Shell(CommonShell):
     def __comment_requester(next_page_token, query, headers):
         response = requests.get(f'{query}&pageToken={next_page_token}', headers=headers)
         response_json = json.loads(response.text)  # FIXME: this will cause Error if youtube response in not json
-        comments = response_json['items']
+        comments = response_json['items']  # FIXME: it may be done recursively like the __get_video_ids function
         next_page_token = response_json.get('nextPageToken', '')
         return comments, next_page_token
 
