@@ -167,7 +167,7 @@ class Shell(CommonShell):
         _likes = snippet['likeCount']
         _published = snippet['publishedAt']
         _parent = None if is_top_level else snippet['parentId']
-        _author_id = snippet['authorChannelId']['value']
+        _author_id = snippet.get('authorChannelId', {'value': ''})['value']
         _meta_info = {
             'is_top_level': is_top_level,
             'reply_count': reply_count,
