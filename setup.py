@@ -1,5 +1,20 @@
 from setuptools import setup, find_packages
 import highlight_comment
+import os
+from setuptools.command.build_py import build_py
+from shutil import copytree
+
+HERE = os.path.abspath(os.path.dirname(__file__))
+NAME = os.path.join("highlight_comment", "config.json")
+
+
+class BuildCommand(build_py):
+
+    def run(self) -> None:
+        build_py.run(self)
+        if not self.dry_run:
+            target_dir = os.path.join(self.build_lib, NAME)
+            copytree(os.path.join(HERE, NAME), target_dir)
 
 
 setup(
@@ -10,7 +25,7 @@ setup(
     url='https://github.com/unnamed16/highlight_comment',
     download_url='https://github.com/unnamed16/highlight_comment',
     author=highlight_comment.__author__,
-    author_email=['yakimetsku@gmail.com'],
+    author_email='yakimetsku@gmail.com',
     license=highlight_comment.__licence__,
     packages=find_packages(),
     extras_require={},
@@ -24,4 +39,5 @@ setup(
         'Topic :: Software Development',
         'Topic :: Utilities'
     ],
+    cmdclass={"build_py": BuildCommand},
 )
