@@ -1,20 +1,5 @@
 from setuptools import setup, find_packages
 import highlight_comment
-import os
-from setuptools.command.build_py import build_py
-from shutil import copytree
-
-HERE = os.path.abspath(os.path.dirname(__file__))
-NAME = os.path.join("highlight_comment", "config.json")
-
-
-class BuildCommand(build_py):
-
-    def run(self) -> None:
-        build_py.run(self)
-        if not self.dry_run:
-            target_dir = os.path.join(self.build_lib, NAME)
-            copytree(os.path.join(HERE, NAME), target_dir)
 
 
 setup(
@@ -39,5 +24,5 @@ setup(
         'Topic :: Software Development',
         'Topic :: Utilities'
     ],
-    cmdclass={"build_py": BuildCommand},
+    package_data={'highlight_comment': ['config.json']}
 )
