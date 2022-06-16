@@ -263,14 +263,16 @@ class Shell(CommonShell):
         elif result['code'] == ResponseCode.OK:
             rest_limit = limit - self.__DEFAULT_INFO_LIMIT
             if rest_limit > 0:
-                next_page = self.__get_video_ids(
-                    channel,
-                    limit=rest_limit,
-                    order=order,
-                    page_token=req.json()['nextPageToken']
-                )
-                if next_page['code'] == ResponseCode.OK:
-                    result['result'].extend(next_page['result'])
+                next_page_token = req.json().get('nextPageToken', None)
+                if next_page_token is not None:
+                    next_page = self.__get_video_ids(
+                        channel,
+                        limit=rest_limit,
+                        order=order,
+                        page_token=next_page_token
+                    )
+                    if next_page['code'] == ResponseCode.OK:
+                        result['result'].extend(next_page['result'])
         return result
 
     @staticmethod
