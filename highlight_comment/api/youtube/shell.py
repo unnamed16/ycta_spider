@@ -5,7 +5,6 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
 from typing import Callable, Dict, List, Iterator
-from functools import partial
 import json
 from dateutil.parser import isoparse
 
@@ -14,7 +13,7 @@ import requests
 from highlight_comment.structures.youtube import Channel, VideoInfo
 from highlight_comment.api.shell import Shell as CommonShell
 from highlight_comment.api.shell import PlatformType, ResponseCode, SearchOrder
-from highlight_comment.api.shell import Source, Response, Comment
+from highlight_comment.api.shell import Source, Response, Comment, Comments
 
 
 class Shell(CommonShell):
@@ -26,6 +25,8 @@ class Shell(CommonShell):
     __REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
     __TOKEN_URL = "https://www.googleapis.com/oauth2/v4/token"
     __DEFAULT_INFO_LIMIT = 50
+    __INFO_BATCH_SIZE = 50
+    __COMMENTS_BATCH_SIZE = 100
 
     def __init__(self):
         super().__init__()
@@ -56,24 +57,18 @@ class Shell(CommonShell):
         })
         return json.loads(access_token.text)
 
-    @staticmethod
-    def __comment_requester(next_page_token, query, headers):
-        response = requests.get(f'{query}&pageToken={next_page_token}', headers=headers)
-        response_json = json.loads(response.text)  # FIXME: this will cause Error if youtube response in not json
-        comments = response_json['items']  # FIXME: it may be done recursively like the __get_video_ids function
-        next_page_token = response_json.get('nextPageToken', '')
-        return comments, next_page_token
-
     def get_comments(
             self,
             source: Source,
             limit: int = None,
-            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
+            order: SearchOrder = SearchOrder.RELEVANCE,
+            page_token: str = '') -> Iterator[Comment]:
         """
         Return all comments for the specified source\n
         :param source: ('videoId', 'MyVideoId')
-        :param limit: <= 100
+        :param limit: will download all the comments if None
         :param order: time (starts with more recent) or relevance
+        :param page_token: is needed for recursive upload from a concrete page
         :return: generator of comments
         """
         func = 'commentThreads'
@@ -83,21 +78,27 @@ class Shell(CommonShell):
             f'part={part}&'
             f'{source[0]}={source[1]}&'
             f'key={self.__api_key}&'
-            f'maxResults={100 if limit is None else min(100, limit)}&'
+            f'maxResults={self.__COMMENTS_BATCH_SIZE if limit is None else min(self.__COMMENTS_BATCH_SIZE, limit)}&'
             f'order={order.value}'
         )
-        requester = partial(self.__comment_requester, query=query, headers=self.common_headers)
-        comments, next_page_token = requester('')
-        for comment in comments:
+        response = requests.get(f'{query}&pageToken={page_token}', headers=self.common_headers)
+        comments = Shell.__parse(response, Shell.__parse_comments)
+        if comments['code'] == ResponseCode.OK:
+            for comment in comments['result']:
+                yield comment
+            next_page_token = response.json().get('nextPageToken', None)
+            if next_page_token is not None:
+                for comment in self.get_comments(
+                        source,
+                        limit=None if limit is None else limit - self.__COMMENTS_BATCH_SIZE,
+                        order=order,
+                        page_token=next_page_token):
+                    yield comment
+
+    @staticmethod
+    def __parse_comments(comments_json: Dict) -> Comments:
+        for comment in comments_json['items']:
             yield Shell.__parse_parent_comment(comment)
-        if limit is not None:
-            limit -= 100  # FIXME: this "100" should to be a constant
-        while next_page_token != '' and (limit is None or limit > 0):
-            comments, next_page_token = requester(next_page_token)
-            for comment in comments:
-                yield Shell.__parse_parent_comment(comment)
-            if limit is not None:
-                limit -= 100
 
     def get_comments_from_several_sources(
             self,
@@ -114,7 +115,7 @@ class Shell(CommonShell):
         print('\r', end='')
 
     @staticmethod
-    def __parse_parent_comment(thread: dict) -> Comment:
+    def __parse_parent_comment(thread: Dict) -> Comment:
         _thread_id = thread['id']
         _main_comment = thread['snippet']
         result = Shell.__parse_one_comment(
@@ -250,7 +251,7 @@ class Shell(CommonShell):
             f'{self.__V3_URL}{func}?'
             f'part={part}&'
             f'channelId={channel_id}&'
-            f'maxResults={min(limit, self.__DEFAULT_INFO_LIMIT)}&'
+            f'maxResults={min(limit, self.__INFO_BATCH_SIZE)}&'
             f'order={order.value}&'
             f'type={content_type}&'
             f'key={self.__api_key}&'
@@ -261,7 +262,7 @@ class Shell(CommonShell):
         if result['code'] == ResponseCode.ERROR:
             result['message'] = f'failed to find videos on {channel_id}'
         elif result['code'] == ResponseCode.OK:
-            rest_limit = limit - self.__DEFAULT_INFO_LIMIT
+            rest_limit = limit - self.__INFO_BATCH_SIZE
             if rest_limit > 0:
                 next_page_token = req.json().get('nextPageToken', None)
                 if next_page_token is not None:
