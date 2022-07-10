@@ -1,5 +1,5 @@
 """
-Highlighter Comment provides several chatbots and api shells for automated arguing on different platforms.
+YCTA Spider provides several chatbots and api shells for automated arguing on different platforms.
 """
 
 __licence__ = 'MIT'
