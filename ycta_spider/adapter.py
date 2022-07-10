@@ -79,3 +79,16 @@ def save_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
         path=path,
         headers=headers
     )
+
+
+def send_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
+    """
+    Save Sources Info to DB (by URL)
+    :param info: Iterable Sources Info
+    :param path: string with the URL to DB
+    """
+    # TODO: implement database communication
+    for i, source_info in enumerate(info):
+        print(f'\nSource Info #{i}:\n')
+        print('\n'.join(f'\t{key} = {val}' for key, val in source_info.__dict__.items()))
+        input()

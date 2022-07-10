@@ -214,6 +214,21 @@ class Shell(CommonShell):
             for source_info in response['result']:
                 yield source_info
 
+    def get_sources_info_continuous(
+            self,
+            sources: List[Source] = None,
+            limit: int = __DEFAULT_INFO_LIMIT,
+            order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
+        """
+        Return info for the several specified sources and update it continuously\n
+        :param sources: source descriptions list for which the info has to be obtained
+        :param limit: limit of the sources obtained from each source
+        :param order: sort order of the obtained data
+        :return: Generator of the SourceInfo
+        """
+        # TODO: implement continuous processing
+        return self.get_sources_info(sources=sources, limit=limit, order=order)
+
     def get_sources_info(
             self,
             sources: List[Source] = None,
@@ -222,7 +237,7 @@ class Shell(CommonShell):
         """
         Return info for the several specified sources\n
         :param sources: source descriptions list for which the info has to be obtained
-        :param limit: limit of the comments to download
+        :param limit: limit of the sources obtained from each source
         :param order: sort order of the obtained data
         :return: Generator of the VideoInfo
         """

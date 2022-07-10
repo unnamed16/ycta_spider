@@ -75,7 +75,21 @@ class Shell:
         """
         Return info for the several specified sources\n
         :param sources: source descriptions list for which the info has to be obtained
-        :param limit: limit of the comments to download
+        :param limit: limit of the sources obtained from each source
+        :param order: sort order of the obtained data
+        :return: Generator of the SourceInfo
+        """
+        pass
+
+    def get_sources_info_continuous(
+            self,
+            sources: List[Source],
+            limit: int,
+            order: SearchOrder) -> Iterator[SourceInfo]:
+        """
+        Return info for the several specified sources and update it continuously\n
+        :param sources: source descriptions list for which the info has to be obtained
+        :param limit: limit of the sources obtained from each source
         :param order: sort order of the obtained data
         :return: Generator of the SourceInfo
         """

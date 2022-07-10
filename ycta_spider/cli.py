@@ -25,6 +25,9 @@ LIMIT_SHORT = '-l'
 OUTPUT = '--output'
 OUTPUT_SHORT = '-o'
 
+CONTINUOUS = '--continuous'
+CONTINUOUS_SHORT = '-c'
+
 
 class UriType(Enum):
     STDIO = 's'
@@ -76,6 +79,11 @@ def cli() -> None:
         type=str,
         default=None,
         help="where to store the result (url - send, file - save, print if not specified)")
+    info.add_argument(
+        CONTINUOUS_SHORT,
+        CONTINUOUS,
+        action="store_true",
+        help="start continuous info crawling if enabled")
 
     crawl = subparsers.add_parser(
         CRAWL,
@@ -94,6 +102,11 @@ def cli() -> None:
         type=str,
         default=None,
         help="where to store the result (url - send, file - save, print if not specified)")
+    crawl.add_argument(
+        CONTINUOUS_SHORT,
+        CONTINUOUS,
+        action="store_true",
+        help="start continuous comment crawling if enabled")
 
     highlight = subparsers.add_parser(
         HIGHLIGHT,
@@ -112,6 +125,11 @@ def cli() -> None:
         type=str,
         default=None,
         help="where to store the result (url - send, file - save, print if not specified)")
+    highlight.add_argument(
+        CONTINUOUS_SHORT,
+        CONTINUOUS,
+        action="store_true",
+        help="start continuous comments highlighting if enabled")
 
     respond = subparsers.add_parser(
         RESPOND,
@@ -127,19 +145,24 @@ def cli() -> None:
         type=str,
         default=None,
         help="where to store the result (url - send, file - save, print if not specified)")
+    respond.add_argument(
+        CONTINUOUS_SHORT,
+        CONTINUOUS,
+        action="store_true",
+        help="start continuous comment responding if enabled")
 
     args = parser.parse_args()
     if args.command == INFO:
-        __try_info(args.platform, args.limit, args.output, args)
+        __try_info(args.platform, args.limit, args.output, args.continuous, args)
     elif args.command == CRAWL:
-        __try_crawl(args.platform, args.limit, args.output, args)
+        __try_crawl(args.platform, args.limit, args.output, args.continuous, args)
     elif args.command == HIGHLIGHT:
-        __try_highlight(args.platform, args.limit, args.output, args)
+        __try_highlight(args.platform, args.limit, args.output, args.continuous, args)
     elif args.command == RESPOND:
-        __try_respond(args.platform, args.limit, args.output, args)
+        __try_respond(args.platform, args.limit, args.output, args.continuous, args)
 
 
-def __try_info(platform_name: str, limit: int, output: str, args: argparse.Namespace) -> None:
+def __try_info(platform_name: str, limit: int, output: str, continuous: bool, args: argparse.Namespace) -> None:
     if not __check_platform(platform_name):
         return
     output_message = get_uri_message(output)
@@ -160,10 +183,19 @@ def __try_info(platform_name: str, limit: int, output: str, args: argparse.Names
         print(f'Unsupportable option: save info to the folder {output_message}')
     elif uri_type == UriType.URL:
         print(f'Send source info from {platform_name} to {output_message}')
-        print("Arguments combination is not yet supported: " + str(args))
+        if continuous:
+            adapter.send_info(
+                build.shell(PlatformType[platform_name]).get_sources_info_continuous(limit=limit),
+                output
+            )
+        else:
+            adapter.send_info(
+                build.shell(PlatformType[platform_name]).get_sources_info(limit=limit),
+                output
+            )
 
 
-def __try_crawl(platform_name: str, limit: int, output: str, args: argparse.Namespace) -> None:
+def __try_crawl(platform_name: str, limit: int, output: str, continuous: bool, args: argparse.Namespace) -> None:
     if not __check_platform(platform_name):
         return
     output_message = get_uri_message(output)
@@ -188,7 +220,7 @@ def __try_crawl(platform_name: str, limit: int, output: str, args: argparse.Name
         print("Arguments combination is not yet supported: " + str(args))
 
 
-def __try_highlight(platform_name: str, limit: int, output: str, args: argparse.Namespace) -> None:
+def __try_highlight(platform_name: str, limit: int, output: str, continuous: bool, args: argparse.Namespace) -> None:
     if not __check_platform(platform_name):
         return
     output_message = get_uri_message(output)
@@ -207,7 +239,7 @@ def __try_highlight(platform_name: str, limit: int, output: str, args: argparse.
         print("Arguments combination is not yet supported: " + str(args))
 
 
-def __try_respond(platform_name: str, limit: int, output: str, args: argparse.Namespace) -> None:
+def __try_respond(platform_name: str, limit: int, output: str, continuous: bool, args: argparse.Namespace) -> None:
     if not __check_platform(platform_name):
         return
     output_message = get_uri_message(output)
