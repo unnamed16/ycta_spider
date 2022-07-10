@@ -6,8 +6,8 @@ __date__ = '2022/05/29'
 
 from unittest import TestCase
 
-from highlight_comment.api.youtube.shell import Shell
-from highlight_comment.api.shell import PlatformType, ResponseCode
+from ycta_spider.api.youtube.shell import Shell
+from ycta_spider.api.shell import PlatformType, ResponseCode
 
 
 class YoutubeShellTestCase(TestCase):

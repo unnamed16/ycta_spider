@@ -6,8 +6,8 @@ __date__ = '2022/05/29'
 
 from unittest import TestCase
 
-from highlight_comment.api.telegram.shell import Shell
-from highlight_comment.api.shell import PlatformType
+from ycta_spider.api.telegram.shell import Shell
+from ycta_spider.api.shell import PlatformType
 
 
 class KucoinShellTestCase(TestCase):

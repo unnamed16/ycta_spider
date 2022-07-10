@@ -3,8 +3,8 @@ Set of api shells, sentiment estimation system and chatbot.
 ___
 ## Installation
 
-1. ```git clone git@github.com:unnamed16/highlight_comment.git```
-2. ```cd highlight_comment```
+1. ```git clone git@github.com:unnamed16/ycta_spider.git```
+2. ```cd ycta_spider```
 3. ```git submodule update --recursive --init```
 4. ```pip3 install .```
 
@@ -188,7 +188,7 @@ ___
 ***Shell*** - common interface for _API Shell_.
 
 ```python
-from highlight_comment.api.shell import Shell
+from ycta_spider.api.shell import Shell
 
 
 class MyShell(Shell):
@@ -209,19 +209,19 @@ class MyShell(Shell):
 ***VK*** - api shell for the _https://vk.com_ with common shell interface.
 
 ```python
-from highlight_comment.api.vk.shell import Shell
+from ycta_spider.api.vk.shell import Shell
 ```
 
 ***YOUTUBE*** - api shell for the _https://youtube.com_ with common shell interface.
 
 ```python
-from highlight_comment.api.youtube.shell import Shell
+from ycta_spider.api.youtube.shell import Shell
 ```
 
 ***TELEGRAM*** - api shell for the _https://web.telegram.org_ with common shell interface.
 
 ```python
-from highlight_comment.api.telegram.shell import Shell
+from ycta_spider.api.telegram.shell import Shell
 ```
 ___
 

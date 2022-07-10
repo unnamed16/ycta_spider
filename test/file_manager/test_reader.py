@@ -6,7 +6,7 @@ __date__ = '2022/05/30'
 
 from unittest import TestCase
 
-from highlight_comment.file_manager.reader import read_config
+from ycta_spider.file_manager.reader import read_config
 
 
 class ReaderTestCase(TestCase):
