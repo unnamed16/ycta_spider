@@ -48,6 +48,7 @@ Response = Dict[str, Any]
 
 
 class Shell:
+    __INFO_CONTINUOUS_DELAY_MINUTES = 15
 
     def __init__(self):
         self.common_headers = {

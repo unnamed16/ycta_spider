@@ -7,6 +7,9 @@ __date__ = '2022/05/28'
 from typing import Callable, Dict, List, Iterator
 import json
 from dateutil.parser import isoparse
+from datetime import datetime
+from datetime import timedelta
+import time
 
 import requests
 
@@ -32,7 +35,7 @@ class Shell(CommonShell):
         super().__init__()
         self.__platform_type = PlatformType.YOUTUBE
         platform_config = self.config['platforms'][self.platform_type.name]
-        self.__sources = self.config['sources'][self.platform_type.name]
+        self.__sources = self.update_sources()
         self.__api_key = platform_config['api_key']
         self.__client_id = platform_config['client_id']
         self.__client_secret = platform_config['client_secret']
@@ -226,8 +229,20 @@ class Shell(CommonShell):
         :param order: sort order of the obtained data
         :return: Generator of the SourceInfo
         """
-        # TODO: implement continuous processing
-        return self.get_sources_info(sources=sources, limit=limit, order=order)
+        # repeat every __INFO_CONTINUOUS_DELAY_MINUTES
+        prev_time = datetime.now()
+        while True:
+            local_sources = self.update_sources() if sources is None else sources
+            for s in self.get_sources_info(sources=sources, limit=limit, order=order):
+                yield s
+            prev_time += timedelta(self.__INFO_CONTINUOUS_DELAY_MINUTES)
+            time_delay = prev_time - datetime.now()
+            if time_delay > timedelta(seconds=0):
+                time.sleep(time_delay.total_seconds())
+
+    def update_sources(self):
+        return self.config['sources'][self.platform_type.name]
+        # TODO: update sources from Sources DB
 
     def get_sources_info(
             self,

@@ -91,4 +91,3 @@ def send_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
     for i, source_info in enumerate(info):
         print(f'\nSource Info #{i}:\n')
         print('\n'.join(f'\t{key} = {val}' for key, val in source_info.__dict__.items()))
-        input()
