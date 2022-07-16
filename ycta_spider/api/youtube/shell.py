@@ -233,7 +233,7 @@ class Shell(CommonShell):
         prev_time = datetime.now()
         while True:
             local_sources = self.update_sources() if sources is None else sources
-            for s in self.get_sources_info(sources=sources, limit=limit, order=order):
+            for s in self.get_sources_info(sources=local_sources, limit=limit, order=order):
                 yield s
             prev_time += timedelta(self.__INFO_CONTINUOUS_DELAY_MINUTES)
             time_delay = prev_time - datetime.now()
