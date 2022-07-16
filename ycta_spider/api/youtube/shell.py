@@ -108,6 +108,13 @@ class Shell(CommonShell):
             sources: List[Source] = None,
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
+        """
+        Return all comments for the several specified sources\n
+        :param sources: source descriptions list where from the comments have to be obtained
+        :param limit: limit of the comments to download from each source
+        :param order: sort order of the obtained data
+        :return: Generator of the Comments
+        """
         if sources is None:
             sources = self.__sources
         for i, source in enumerate(sources):
@@ -116,6 +123,61 @@ class Shell(CommonShell):
                 yield comment
         print('\r ', end='')
         print('\r', end='')
+
+    def get_comments_from_several_sources_continuous(
+            self,
+            sources: List[Source] = None,
+            limit: int = None,
+            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
+        """
+        Return all comments for the several specified sources and update it continuously\n
+        :param sources: source descriptions list where from the comments have to be obtained
+        :param limit: limit of the comments to download from each source
+        :param order: sort order of the obtained data
+        :return: Generator of the Comments
+        """
+        last_update_time_fresh = datetime.now() - timedelta(seconds=self.__COMMENTS_RARE_RANGE)
+        last_update_time_medium = last_update_time_fresh
+        last_update_time_rare = last_update_time_fresh
+        local_sources_fresh = []
+        local_sources_medium = []
+        local_sources_rare = []
+        while True:
+            current_time = datetime.now()
+            if current_time > last_update_time_fresh + timedelta(seconds=self.__COMMENTS_CONTINUOUS_DELAY_FRESH):
+                local_sources_fresh = self.get_sources_info_from_db(
+                    min_ts=current_time - timedelta(seconds=self.__COMMENTS_FRESH_RANGE),
+                    max_ts=current_time
+                ) if sources is None else sources
+                last_update_time_fresh = current_time
+            if current_time > last_update_time_medium + timedelta(seconds=self.__COMMENTS_CONTINUOUS_DELAY_MEDIUM):
+                local_sources_medium = self.get_sources_info_from_db(
+                    min_ts=current_time - timedelta(seconds=self.__COMMENTS_MEDIUM_RANGE),
+                    max_ts=current_time - timedelta(seconds=self.__COMMENTS_FRESH_RANGE),
+                ) if sources is None else []
+                last_update_time_medium = current_time
+            if current_time > last_update_time_rare + timedelta(seconds=self.__COMMENTS_CONTINUOUS_DELAY_RARE):
+                local_sources_rare = self.get_sources_info_from_db(
+                    min_ts=current_time - timedelta(seconds=self.__COMMENTS_RARE_RANGE),
+                    max_ts=current_time - timedelta(seconds=self.__COMMENTS_MEDIUM_RANGE),
+                ) if sources is None else []
+                last_update_time_rare = current_time
+            if local_sources_fresh:
+                for s in self.get_comments_from_several_sources(sources=local_sources_fresh, limit=limit, order=order):
+                    yield s
+                local_sources_fresh = None
+            if local_sources_medium:
+                for s in self.get_comments_from_several_sources(sources=local_sources_medium, limit=limit, order=order):
+                    yield s
+                local_sources_medium = None
+            if local_sources_rare:
+                for s in self.get_comments_from_several_sources(sources=local_sources_rare, limit=limit, order=order):
+                    yield s
+                local_sources_rare = None
+            time_delay = \
+                last_update_time_fresh + timedelta(seconds=self.__COMMENTS_CONTINUOUS_DELAY_FRESH) - datetime.now()
+            if time_delay > timedelta(seconds=0):
+                time.sleep(time_delay.total_seconds())
 
     @staticmethod
     def __parse_parent_comment(thread: Dict) -> Comment:
@@ -229,18 +291,22 @@ class Shell(CommonShell):
         :param order: sort order of the obtained data
         :return: Generator of the SourceInfo
         """
-        # repeat every __INFO_CONTINUOUS_DELAY_MINUTES
+        # repeat every __INFO_CONTINUOUS_DELAY seconds
         prev_time = datetime.now()
         while True:
             local_sources = self.update_sources() if sources is None else sources
             for s in self.get_sources_info(sources=local_sources, limit=limit, order=order):
                 yield s
-            prev_time += timedelta(self.__INFO_CONTINUOUS_DELAY_MINUTES)
+            prev_time += timedelta(seconds=self.__INFO_CONTINUOUS_DELAY)
             time_delay = prev_time - datetime.now()
             if time_delay > timedelta(seconds=0):
                 time.sleep(time_delay.total_seconds())
 
-    def update_sources(self):
+    def get_sources_info_from_db(self, min_ts, max_ts) -> Iterator[Source]:
+        return self.config['sources'][self.platform_type.name]
+        # TODO: get sources from Info DB
+
+    def update_sources(self) -> Iterator[Source]:
         return self.config['sources'][self.platform_type.name]
         # TODO: update sources from Sources DB
 

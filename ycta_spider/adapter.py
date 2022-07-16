@@ -91,3 +91,15 @@ def send_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
     for i, source_info in enumerate(info):
         print(f'\nSource Info #{i}:\n')
         print('\n'.join(f'\t{key} = {val}' for key, val in source_info.__dict__.items()))
+
+
+def send_comments(comments: Comments, path: Union[str, Path]) -> None:
+    """
+    Save Comments to DB (by URL)
+    :param comments: Iterable Comments
+    :param path: string with the URL to DB
+    """
+    # TODO: implement database communication
+    for i, comment in enumerate(comments):
+        print(f'\nComment #{i}:\n')
+        print('\n'.join(f'\t{key} = {val}' for key, val in comment.items()))

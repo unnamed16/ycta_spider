@@ -48,7 +48,13 @@ Response = Dict[str, Any]
 
 
 class Shell:
-    __INFO_CONTINUOUS_DELAY_MINUTES = 15
+    __INFO_CONTINUOUS_DELAY = 900    # seconds
+    __COMMENTS_CONTINUOUS_DELAY_FRESH = 60    # every minute
+    __COMMENTS_CONTINUOUS_DELAY_MEDIUM = 900  # every 15 minutes
+    __COMMENTS_CONTINUOUS_DELAY_RARE = 43200  # twice daily
+    __COMMENTS_FRESH_RANGE = 3600    # hour in seconds
+    __COMMENTS_MEDIUM_RANGE = 86400  # day in seconds
+    __COMMENTS_RARE_RANGE = 2592000  # month
 
     def __init__(self):
         self.common_headers = {
@@ -114,9 +120,23 @@ class Shell:
         """
         Return all comments for the several specified sources\n
         :param sources: source descriptions list where from the comments have to be obtained
-        :param limit: limit of the comments to download
+        :param limit: limit of the comments to download from each source
         :param order: sort order of the obtained data
-        :return: List of the Comments
+        :return: Generator of the Comments
+        """
+        pass
+
+    def get_comments_from_several_sources_continuous(
+            self,
+            sources: List[Source],
+            limit: int,
+            order: SearchOrder) -> Iterator[SourceInfo]:
+        """
+        Return all comments for the several specified sources and update it continuously\n
+        :param sources: source descriptions list where from the comments have to be obtained
+        :param limit: limit of the comments to download from each source
+        :param order: sort order of the obtained data
+        :return: Generator of the Comments
         """
         pass
 

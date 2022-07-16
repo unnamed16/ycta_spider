@@ -217,7 +217,16 @@ def __try_crawl(platform_name: str, limit: int, output: str, continuous: bool, a
         print(f'Unsupportable option: save comments to the folder {output_message}')
     elif uri_type == UriType.URL:
         print(f'Send {limit_message} comments per source from {platform_name} to {output_message}')
-        print("Arguments combination is not yet supported: " + str(args))
+        if continuous:
+            adapter.send_comments(
+                build.shell(PlatformType[platform_name]).get_comments_from_several_sources_continuous(limit=limit),
+                output
+            )
+        else:
+            adapter.send_comments(
+                build.shell(PlatformType[platform_name]).get_comments_from_several_sources(limit=limit),
+                output
+            )
 
 
 def __try_highlight(platform_name: str, limit: int, output: str, continuous: bool, args: argparse.Namespace) -> None:
