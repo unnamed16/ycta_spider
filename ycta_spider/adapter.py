@@ -11,6 +11,7 @@ from typing import Union, Iterable
 from ycta_spider.api.shell import Comments
 from ycta_spider.file_manager.writer import save_json, save_csv
 from ycta_spider.structures.common import SourceInfo
+from ycta_spider.db.youtube import store_info as yt_store_info
 
 
 def print_comments(comments: Comments, manual_control: bool = False) -> None:
@@ -81,16 +82,17 @@ def save_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
     )
 
 
-def send_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
+def send_info(info: Iterable[SourceInfo], platform: str, table: str) -> None:
     """
-    Save Sources Info to DB (by URL)
+    Save Sources Info to DB
     :param info: Iterable Sources Info
-    :param path: string with the URL to DB
+
+    :param table: pick the right table for the source info type
     """
-    # TODO: implement database communication
-    for i, source_info in enumerate(info):
-        print(f'\nSource Info #{i}:\n')
-        print('\n'.join(f'\t{key} = {val}' for key, val in source_info.__dict__.items()))
+    if platform == 'youtube':
+        yt_store_info(info, table)
+    else:
+        raise NotImplementedError  # TODO
 
 
 def send_comments(comments: Comments, path: Union[str, Path]) -> None:

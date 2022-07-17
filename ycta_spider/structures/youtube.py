@@ -22,7 +22,7 @@ class VideoInfo(SourceInfo):
     view_count: int = None
     like_count: int = None
     comment_count: int = None
-    topic_categories: List[int] = None
+    topic_categories: List[str] = None
 
 
 @dataclass
