@@ -11,7 +11,7 @@ from typing import Union, Iterable
 from ycta_spider.api.shell import Comments
 from ycta_spider.file_manager.writer import save_json, save_csv
 from ycta_spider.structures.common import SourceInfo
-from ycta_spider.db.youtube import store_info as yt_store_info
+from ycta_spider.db.youtube import send_info as yt_store_info
 
 
 def print_comments(comments: Comments, manual_control: bool = False) -> None:

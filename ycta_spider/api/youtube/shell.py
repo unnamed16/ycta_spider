@@ -10,7 +10,9 @@ from dateutil.parser import isoparse
 from datetime import datetime
 from datetime import timedelta
 import time
+from functools import partial
 
+import pytz
 import requests
 
 from ycta_spider.structures.youtube import Channel, VideoInfo
@@ -354,7 +356,7 @@ class Shell(CommonShell):
             f'pageToken={page_token}'
         )
         req = requests.get(url)
-        result = Shell.__parse(req, Shell.__parse_video_ids)
+        result = Shell.__parse(req, partial(Shell.__parse_video_ids, channel_id=channel.channel_id))
         if result['code'] == ResponseCode.ERROR:
             result['message'] = f'failed to find videos on {channel_id}'
         elif result['code'] == ResponseCode.OK:
@@ -373,13 +375,15 @@ class Shell(CommonShell):
         return result
 
     @staticmethod
-    def __parse_video_ids(response_json: Dict) -> List[VideoInfo]:
+    def __parse_video_ids(response_json: Dict, channel_id: str) -> List[VideoInfo]:
         return [
             VideoInfo(
                 idx=json_elem['id']['videoId'],
-                time=isoparse(json_elem['snippet']['publishedAt']),
+                time=datetime.now(pytz.utc),
+                publish_time=isoparse(json_elem['snippet']['publishedAt']),
                 title=json_elem['snippet']['title'],
-                description=json_elem['snippet']['description']
+                description=json_elem['snippet']['description'],
+                channel_id=channel_id
             )
             for json_elem in response_json['items']
         ]
@@ -466,7 +470,8 @@ class Shell(CommonShell):
 
         return VideoInfo(
             idx=info.get('id', None),
-            time=isoparse(snippet['publishedAt']) if 'publishedAt' in snippet else None,
+            time=datetime.now(pytz.utc),
+            publish_time=isoparse(snippet['publishedAt']) if 'publishedAt' in snippet else None,
             channel_id=snippet.get('channelId', None),
             title=snippet.get('title', None),
             description=snippet.get('description', None),

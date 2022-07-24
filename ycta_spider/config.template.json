@@ -1,7 +1,5 @@
 {
-  "data_path": "",
-  "postgresql": {
-    "database": "",
+  "psql": {
     "user": "",
     "password": "",
     "host": "",

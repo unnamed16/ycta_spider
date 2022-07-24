@@ -4,6 +4,7 @@ __credits__ = ['pvp']
 __maintainer__ = 'pvp'
 __date__ = '2022/05/30'
 
+import datetime as dt
 from dataclasses import dataclass
 from typing import List
 
@@ -12,10 +13,11 @@ from ycta_spider.structures.common import SourceInfo
 
 @dataclass
 class VideoInfo(SourceInfo):
+    publish_time: dt.datetime
     title: str
     description: str
+    channel_id: str
     duration: str = None
-    channel_id: str = None
     channel_title: str = None
     tags: List[str] = None
     category_id: int = None
@@ -26,12 +28,31 @@ class VideoInfo(SourceInfo):
 
 
 @dataclass
+class ChannelInfo(SourceInfo):
+    pass
+    # TODO
+
+
+@dataclass
+class PrimaryComment(SourceInfo):
+    pass
+    # TODO
+
+
+@dataclass
+class SecondaryComment(SourceInfo):
+    pass
+    # TODO
+
+
+
+@dataclass
 class Channel:
+    channel_id: str
     name: str = None
     is_anti_put: int = None
     suffix: str = None
     desc: str = None
-    channel_id: str = None
 
 
 Channels = List[Channel]
