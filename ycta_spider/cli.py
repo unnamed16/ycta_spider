@@ -10,7 +10,7 @@ from enum import Enum
 
 from ycta_spider import adapter
 from ycta_spider.api import build
-from ycta_spider.api.shell import PlatformType
+from ycta_spider.structures.common import PlatformType
 
 INFO = 'info'
 CRAWL = 'crawl'

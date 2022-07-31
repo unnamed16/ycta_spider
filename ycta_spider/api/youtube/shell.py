@@ -4,21 +4,19 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-from typing import Callable, Dict, List, Iterator
+from typing import Callable, Dict, List, Iterator, Iterable
 import json
 from dateutil.parser import isoparse
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 import time
 from functools import partial
 
 import pytz
 import requests
 
-from ycta_spider.structures.youtube import Channel, VideoInfo
+from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, YoutubeComment, SearchOrder
 from ycta_spider.api.shell import Shell as CommonShell
-from ycta_spider.api.shell import PlatformType, ResponseCode, SearchOrder
-from ycta_spider.api.shell import Source, Response, Comment, Comments
+from ycta_spider.structures.common import PlatformType, ResponseCode, Source, Response
 
 
 class Shell(CommonShell):
@@ -67,10 +65,10 @@ class Shell(CommonShell):
             source: Source,
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE,
-            page_token: str = '') -> Iterator[Comment]:
+            page_token: str = '') -> Iterator[YoutubeComment]:
         """
         Return all comments for the specified source\n
-        :param source: ('videoId', 'MyVideoId')
+        :param source: ('videoId', 'MyYoutubeVideoId')
         :param limit: will download all the comments if None
         :param order: time (starts with more recent) or relevance
         :param page_token: is needed for recursive upload from a concrete page
@@ -101,7 +99,7 @@ class Shell(CommonShell):
                     yield comment
 
     @staticmethod
-    def __parse_comments(comments_json: Dict) -> Comments:
+    def __parse_comments(comments_json: Dict) -> Iterator[YoutubeComment]:
         for comment in comments_json['items']:
             yield Shell.__parse_parent_comment(comment)
 
@@ -109,7 +107,7 @@ class Shell(CommonShell):
             self,
             sources: List[Source] = None,
             limit: int = None,
-            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
+            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[YoutubeComment]:
         """
         Return all comments for the several specified sources\n
         :param sources: source descriptions list where from the comments have to be obtained
@@ -120,7 +118,7 @@ class Shell(CommonShell):
         if sources is None:
             sources = self.__sources
         for i, source in enumerate(sources):
-            print(f'\r{i+1}/{len(sources)}\tDownloading comments from {source}', end='')
+            print(f'\r{i + 1}/{len(sources)}\tDownloading comments from {source}', end='')
             for comment in self.get_comments(source, limit, order=order):
                 yield comment
         print('\r ', end='')
@@ -130,7 +128,7 @@ class Shell(CommonShell):
             self,
             sources: List[Source] = None,
             limit: int = None,
-            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[Comment]:
+            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[YoutubeComment]:
         """
         Return all comments for the several specified sources and update it continuously\n
         :param sources: source descriptions list where from the comments have to be obtained
@@ -182,7 +180,7 @@ class Shell(CommonShell):
                 time.sleep(time_delay.total_seconds())
 
     @staticmethod
-    def __parse_parent_comment(thread: Dict) -> Comment:
+    def __parse_parent_comment(thread: Dict) -> YoutubeComment:
         _thread_id = thread['id']
         _main_comment = thread['snippet']
         result = Shell.__parse_one_comment(
@@ -222,7 +220,7 @@ class Shell(CommonShell):
             comment_json: Dict,
             thread_id: str,
             is_top_level: bool = False,
-            reply_count: int = 0) -> Comment:
+            reply_count: int = 0) -> YoutubeComment:
         _comment_id = comment_json['id']
         snippet = comment_json['snippet']
         _video_id = snippet['videoId']
@@ -235,7 +233,7 @@ class Shell(CommonShell):
         _likes = snippet['likeCount']
         _published = snippet['publishedAt']
         _parent = None if is_top_level else snippet['parentId']
-        _author_id = snippet.get('authorChannelId', {'value': ''})['value']
+        _author_id = snippet.get('authorYoutubeChannelId', {'value': ''})['value']
         _meta_info = {
             'is_top_level': is_top_level,
             'reply_count': reply_count,
@@ -255,14 +253,14 @@ class Shell(CommonShell):
             self,
             source: Source,
             limit: int = __DEFAULT_INFO_LIMIT,
-            order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
+            order: SearchOrder = SearchOrder.DATE) -> Iterator[YoutubeVideo]:
         """
         Return info for the specified source or sub sources if the source is not a leaf\n
-        :param source: ('videoId', 'MyVideoId'), ('videoIdList', [list of 'video ids'])
-        or ('channelId', 'MyChannelId')
+        :param source: ('videoId', 'MyYoutubeVideoId'), ('videoIdList', [list of 'video ids'])
+        or ('channelId', 'MyYoutubeChannelId')
         :param limit: limit of the sub-sources to process
         :param order: sort order of the obtained data (date, rating, title), used only for channel source
-        :return: Generator of the VideoInfo
+        :return: Generator of the YoutubeVideo
         """
         source_type, source_value = source
         if source_type == 'videoId':
@@ -272,7 +270,7 @@ class Shell(CommonShell):
             assert videos_num <= limit, f'the limit is {limit}, video id list has length {videos_num}'
             response = self.__get_videos_info(source_value)
         elif source_type == 'channelId':
-            response = self.__get_video_ids(Channel(channel_id=source_value), limit=limit, order=order)
+            response = self.__get_video_ids(YoutubeChannel(channel_id=source_value), limit=limit, order=order)
             if response['code'] == ResponseCode.OK:
                 response = self.__get_videos_info([video_info.idx for video_info in response['result']])
         else:
@@ -285,13 +283,13 @@ class Shell(CommonShell):
             self,
             sources: List[Source] = None,
             limit: int = __DEFAULT_INFO_LIMIT,
-            order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
+            order: SearchOrder = SearchOrder.DATE) -> Iterator[YoutubeVideo]:
         """
         Return info for the several specified sources and update it continuously\n
         :param sources: source descriptions list for which the info has to be obtained
         :param limit: limit of the sources obtained from each source
         :param order: sort order of the obtained data
-        :return: Generator of the SourceInfo
+        :return: Generator of the Source
         """
         # repeat every __INFO_CONTINUOUS_DELAY seconds
         prev_time = datetime.now()
@@ -316,18 +314,18 @@ class Shell(CommonShell):
             self,
             sources: List[Source] = None,
             limit: int = __DEFAULT_INFO_LIMIT,
-            order: SearchOrder = SearchOrder.DATE) -> Iterator[VideoInfo]:
+            order: SearchOrder = SearchOrder.DATE) -> Iterator[YoutubeVideo]:
         """
         Return info for the several specified sources\n
         :param sources: source descriptions list for which the info has to be obtained
         :param limit: limit of the sources obtained from each source
         :param order: sort order of the obtained data
-        :return: Generator of the VideoInfo
+        :return: Generator of the YoutubeVideo
         """
         if sources is None:
             sources = self.__sources
         for i, source in enumerate(sources):
-            print(f'\r{i+1}/{len(sources)}\tDownloading info from {source}', end='')
+            print(f'\r{i + 1}/{len(sources)}\tDownloading info from {source}', end='')
             for source_info in self.get_source_info(source, limit=limit, order=order):
                 yield source_info
         print('\r ', end='')
@@ -335,7 +333,7 @@ class Shell(CommonShell):
 
     def __get_video_ids(
             self,
-            channel: Channel,
+            channel: YoutubeChannel,
             limit: int = __DEFAULT_INFO_LIMIT,
             order: SearchOrder = SearchOrder.DATE,
             page_token: str = '') -> Response:
@@ -375,9 +373,9 @@ class Shell(CommonShell):
         return result
 
     @staticmethod
-    def __parse_video_ids(response_json: Dict, channel_id: str) -> List[VideoInfo]:
+    def __parse_video_ids(response_json: Dict, channel_id: str) -> List[YoutubeVideo]:
         return [
-            VideoInfo(
+            YoutubeVideo(
                 idx=json_elem['id']['videoId'],
                 time=datetime.now(pytz.utc),
                 publish_time=isoparse(json_elem['snippet']['publishedAt']),
@@ -461,14 +459,14 @@ class Shell(CommonShell):
         return result
 
     @staticmethod
-    def __parse_single_video_info(info: Dict) -> VideoInfo:
+    def __parse_single_video_info(info: Dict) -> YoutubeVideo:
         snippet = info.get('snippet', dict())
         stats = info.get('statistics', dict())
 
         def __stats_int_or_none(key):
             return int(stats[key]) if key in stats else None
 
-        return VideoInfo(
+        return YoutubeVideo(
             idx=info.get('id', None),
             time=datetime.now(pytz.utc),
             publish_time=isoparse(snippet['publishedAt']) if 'publishedAt' in snippet else None,
@@ -486,5 +484,5 @@ class Shell(CommonShell):
         )
 
     @staticmethod
-    def __parse_video_info(request_json: Dict) -> List[VideoInfo]:
+    def __parse_video_info(request_json: Dict) -> List[YoutubeVideo]:
         return list(map(Shell.__parse_single_video_info, request_json['items']))

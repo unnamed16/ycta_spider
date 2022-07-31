@@ -7,6 +7,7 @@ __date__ = '2022/07/17'
 from abc import abstractmethod
 
 import psycopg2
+from psycopg2.extensions import connection as PsqlConnection # noqa: F401
 
 from ycta_spider.file_manager.reader import read_config
 
@@ -17,39 +18,43 @@ class PsqlConnector:
 
     @property
     @abstractmethod
-    def _table_creation_query(self) -> str:
+    def __table_creation_query(self) -> str:
         pass
 
     @property
     @abstractmethod
-    def _db(self) -> str:
+    def __db(self) -> str:
         pass
 
     @property
     @abstractmethod
-    def _cols(self) -> list:
+    def __cols(self) -> list:
         pass
 
     def __init__(self, config=None):
         if config is None:
             config = read_config()
-        self._psql_config = config['psql']
-        self._connector = None
+        self.__psql_config = config['psql']
+        self.__connector = None
+
+    def create_connector(self) -> PsqlConnection:
+        return psycopg2.connect(database=self.__db, **self.__psql_config)
 
     def __enter__(self):
-        self._connector = psycopg2.connect(database=self._db, **self._psql_config)
+        self.__connector = psycopg2.connect(database=self.__db, **self.__psql_config)
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self._connector.commit()
-        self._connector.close()
-        self._connector = None
+        self.__connector.commit()
+        self.__connector.close()
+        self.__connector = None
 
     def run_query(self, query: str):
         """:param query: PostgreSQL query"""
-        assert self._connector is not None, "initialize using with context"
-        with self._connector.cursor() as cur:
+        assert self.__connector is not None, "initialize using with context"
+        with self.__connector.cursor() as cur:
             cur.execute(query)
+            return cur.fetchall()
 
-    def _create_table(self):
-        self.run_query(self._table_creation_query)
+    def create_table(self):
+        self.run_query(self.__table_creation_query)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __licence__ = 'MIT'
 __author__ = 'pvp'
 __credits__ = ['pvp']
@@ -5,14 +7,14 @@ __maintainer__ = 'pvp'
 __date__ = '2022/05/30'
 
 import datetime as dt
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import List
 
-from ycta_spider.structures.common import SourceInfo
+from ycta_spider.structures.common import Source, Comment
 
 
-@dataclass
-class VideoInfo(SourceInfo):
+class YoutubeVideo(Source):
     publish_time: dt.datetime
     title: str
     description: str
@@ -26,33 +28,26 @@ class VideoInfo(SourceInfo):
     comment_count: int = None
     topic_categories: List[str] = None
 
+class YoutubeComment(Comment):
+    parent_idx: str = ''
+    children_idx: List = field(default_factory=lambda: [])
 
-@dataclass
-class ChannelInfo(SourceInfo):
-    pass
-    # TODO
+    @property
+    def has_children(self) -> bool:
+        return len(self.children_idx) > 0
 
-
-@dataclass
-class PrimaryComment(SourceInfo):
-    pass
-    # TODO
-
-
-@dataclass
-class SecondaryComment(SourceInfo):
-    pass
-    # TODO
-
-
-
-@dataclass
-class Channel:
+class YoutubeChannel(Source):
     channel_id: str
     name: str = None
     is_anti_put: int = None
     suffix: str = None
     desc: str = None
 
-
-Channels = List[Channel]
+class SearchOrder(Enum):
+    DATE = 'date'
+    TIME = 'time'
+    RATING = 'rating'
+    RELEVANCE = 'relevance'
+    TITLE = 'title'
+    VIDEO_COUNT = 'videoCount'
+    VIEW_COUNT = 'viewCount'

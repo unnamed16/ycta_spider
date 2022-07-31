@@ -8,6 +8,7 @@ from unittest import TestCase
 
 
 class CLITestCase(TestCase):
+    # TODO
 
     def test_get_uri_type(self) -> None:
         pass

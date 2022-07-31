@@ -4,44 +4,13 @@ __credits__ = ['pvp']
 __maintainer__ = 'pvp'
 __date__ = '2022/07/17'
 
-import os
-from csv import reader, writer
 from typing import Iterable
 
-from ycta_spider.file_manager.reader import read_config
-from ycta_spider.structures.youtube import Channel, Channels, VideoInfo, ChannelInfo, PrimaryComment, SecondaryComment
+from ycta_spider.structures.youtube import YoutubeVideo, YoutubeChannel, PrimaryComment, SecondaryComment
 from ycta_spider.db.common import PsqlConnector
-from ycta_spider.structures.common import SourceInfo
+from ycta_spider.structures.common import Source
 
-ID_SUFFIXES = ['c', 'channel', 'user']
-
-
-class ChannelCache:
-    @staticmethod
-    def cache_path():
-        return os.path.join(read_config()['data_path'], 'youtube')
-
-    @classmethod
-    def load_channels(cls) -> Channels:
-        channels = []
-        with open(os.path.join(cls.cache_path(), 'channels.csv'), newline='') as csvfile:
-            spam_reader = reader(csvfile, delimiter=',', quotechar='|')
-            next(spam_reader)
-            for (idx, id_suffix, is_anti_put, desc) in spam_reader:
-                suffix = ID_SUFFIXES[int(id_suffix)]
-                ch_kwargs = {'name': idx, 'is_anti_put': int(is_anti_put), 'suffix': suffix, 'desc': desc}
-                if suffix == 'channel':
-                    ch_kwargs['channel_id'] = idx
-                channels.append(Channel(**ch_kwargs))
-        return channels
-
-    @classmethod
-    def add_channels(cls, name: str, is_anti_put: int, suffix: str, desc: str):
-        with open(os.path.join(cls.cache_path(), 'channels.csv'), 'a', newline='') as f:
-            writer(f).writerow([name, ID_SUFFIXES.index(suffix), is_anti_put, desc])
-
-
-def send_info(info: Iterable[SourceInfo], table: str):
+def send_info(info: Iterable[Source], table: str):
     """store youtube-related data in the DB
 
     :param info: iterable object with info represented via dataclass
@@ -61,7 +30,7 @@ def send_info(info: Iterable[SourceInfo], table: str):
 class YoutubePsqlConnector(PsqlConnector):
     """Use to create and interact with the DB tables of the Youtube DB.
     Use via the context syntax, to ensure that no outstanding connections are left hanging."""
-    _table_creation_query = """
+    __table_creation_query = """
         create table video_info
         (
             idx              char(11) not null,
@@ -83,23 +52,23 @@ class YoutubePsqlConnector(PsqlConnector):
         create unique index video_info_idx_uindex
             on video_info (idx);
     """
-    _db = 'youtube'
-    _cols = VideoInfo.psql_cols()
+    __db = 'youtube'
+    __cols = YoutubeVideo.psql_cols()
 
-    def add_video_info(self, info: Iterable[VideoInfo]):
+    def add_video_info(self, info: Iterable[YoutubeVideo]):
         """add entries from the info object to the video_info table in one query.
         Inserts on first entry, updates on conflicts."""
         self.run_query(
             "INSERT INTO video_info (" +
-            ", ".join(self._cols) +
+            ", ".join(self.__cols) +
             ") VALUES " +
-            ", ".join([entry.psql_to_value(self._cols) for entry in info]) +
+            ", ".join([entry.psql_to_value(self.__cols) for entry in info]) +
             " ON CONFLICT (idx) DO UPDATE SET " +
-            ", ".join([f'{key} = excluded.{key}' for key in self._cols]) +
+            ", ".join([f'{key} = excluded.{key}' for key in self.__cols]) +
             ';'
         )
 
-    def add_channel_info(self, info: Iterable[ChannelInfo]):
+    def add_channel_info(self, info: Iterable[YoutubeChannel]):
         raise NotImplementedError  # TODO
 
     def add_primary_comments(self, info: Iterable[PrimaryComment]):

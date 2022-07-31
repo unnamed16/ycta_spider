@@ -8,10 +8,9 @@ import json
 from pathlib import Path
 from typing import Union, Iterable
 
-from ycta_spider.api.shell import Comments
 from ycta_spider.file_manager.writer import save_json, save_csv
-from ycta_spider.structures.common import SourceInfo
-from ycta_spider.db.youtube import send_info as yt_store_info
+from ycta_spider.structures.common import Source, Comments
+from ycta_spider.db.build import info_senders
 
 
 def print_comments(comments: Comments, manual_control: bool = False) -> None:
@@ -26,7 +25,7 @@ def print_comments(comments: Comments, manual_control: bool = False) -> None:
             input()
 
 
-def print_info(info: Iterable[SourceInfo], manual_control: bool = False) -> None:
+def print_info(info: Iterable[Source], manual_control: bool = False) -> None:
     """
     Print Sources Info to the stdio
     :param info: Iterable Sources Info
@@ -63,7 +62,7 @@ def save_comments(comments: Comments, path: Union[str, Path]) -> None:
         save_json(list(comments), path)
 
 
-def save_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
+def save_info(info: Iterable[Source], path: str) -> None:
     """
     Save Sources Info to file (csv only)
     :param info: Iterable Sources Info
@@ -82,26 +81,23 @@ def save_info(info: Iterable[SourceInfo], path: Union[str, Path]) -> None:
     )
 
 
-def send_info(info: Iterable[SourceInfo], platform: str, table: str) -> None:
+def send_info(info: Union[Iterable[Source], Comments], path: str) -> None:
     """
-    Save Sources Info to DB
+    Save Sources Info (including comments)
     :param info: Iterable Sources Info
-
-    :param table: pick the right table for the source info type
+    :param path: '::'-separated triple (storage type, platform, table name)
     """
-    if platform == 'youtube':
-        yt_store_info(info, table)
+    storage_type, platform, table = path.split('::')
+    if storage_type == 'db':
+        info_senders[platform.lower()](info, table)
     else:
-        raise NotImplementedError  # TODO
+        raise NotImplementedError
 
 
-def send_comments(comments: Comments, path: Union[str, Path]) -> None:
+def send_comments(comments: Comments, path: str) -> None:
     """
-    Save Comments to DB (by URL)
+    Save Comments
     :param comments: Iterable Comments
     :param path: string with the URL to DB
     """
-    # TODO: implement database communication
-    for i, comment in enumerate(comments):
-        print(f'\nComment #{i}:\n')
-        print('\n'.join(f'\t{key} = {val}' for key, val in comment.items()))
+    send_info(comments, path)
