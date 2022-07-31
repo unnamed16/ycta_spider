@@ -7,7 +7,7 @@ __date__ = '2022/05/29'
 from unittest import TestCase
 
 from ycta_spider.api.youtube.shell import Shell
-from ycta_spider.api.shell import PlatformType, ResponseCode
+from ycta_spider.structures.common import PlatformType, ResponseCode
 
 
 class YoutubeShellTestCase(TestCase):
@@ -18,7 +18,7 @@ class YoutubeShellTestCase(TestCase):
 
     def test_get_channel_id(self) -> None:
         self.assertEqual('UCjWy2g76QZf7QLEwx4cB46g', Shell.get_channel_id('arestovych', 'c')['result'])
-        self.assertEqual(ResponseCode.ERROR, Shell.get_channel_id('NonExistantChannel', 'c')['code'])
+        self.assertEqual(ResponseCode.ERROR, Shell.get_channel_id('NonExistantYoutubeChannel', 'c')['code'])
 
     def test_get_comments(self) -> None:
         shell = Shell()
@@ -26,6 +26,7 @@ class YoutubeShellTestCase(TestCase):
         self.assertLessEqual(13, len(list(query)))
 
     def test_add_comments(self) -> None:
+
         shell = Shell()
         query = shell.add_comment(('videoId', 'MILSirUni5E'), 'test')
         self.assertEqual(ResponseCode.OK, query['code'])

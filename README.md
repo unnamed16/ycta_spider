@@ -33,6 +33,8 @@ python cli.py info [-h]
 Positional arguments:
 
 **platform** - platform that has to be processed
+[currently only YOUTUBE,
+with ambitions to expand to other platforms].
 
 Optional arguments:
 
@@ -46,7 +48,7 @@ where to store the result (url - send, file - save, print if not specified)
 
 
 ```bash
-python cli.py info VK
+python cli.py info YOUTUBE
 ```
 
 ```bash
@@ -54,7 +56,7 @@ python cli.py info --output C:/result.json YOUTUBE
 ```
 
 ```bash
-python cli.py info --output https://myDataBaseServer.com --limit 10 TELEGRAM
+python cli.py info --output https://myDataBaseServer.com --limit 10 YOUTUBE
 ```
 
 ---
@@ -86,7 +88,7 @@ where to store the result (url - send, file - save, print if not specified)
 
 
 ```bash
-python cli.py crawl VK
+python cli.py crawl YOUTUBE
 ```
 
 ```bash
@@ -94,7 +96,8 @@ python cli.py crawl --output C:/result.json YOUTUBE
 ```
 
 ```bash
-python cli.py crawl --output https://myDataBaseServer.com --limit 10 TELEGRAM
+python cli.py crawl --output https://myDataBaseServer.com --limit 10 YOUTUBE
+
 ```
 
 ---
@@ -126,7 +129,7 @@ where to store the result (url - send, file - save, print if not specified)
 
 
 ```bash
-python cli.py highlight VK
+python cli.py highlight YOUTUBE
 ```
 
 ```bash
@@ -134,7 +137,7 @@ python cli.py highlight --output C:/result.json YOUTUBE
 ```
 
 ```bash
-python cli.py highlight --output https://myDataBaseServer.com --limit 10 TELEGRAM
+python cli.py highlight --output https://myDataBaseServer.com --limit 10 YOUTUBE
 ```
 
 ---
@@ -168,7 +171,7 @@ where to store the result (url - send, file - save, print if not specified)
 
 
 ```bash
-python cli.py respond VK
+python cli.py respond YOUTUBE
 ```
 
 ```bash
@@ -176,7 +179,7 @@ python cli.py respond --output C:/result.json YOUTUBE
 ```
 
 ```bash
-python cli.py respond --output https://myDataBaseServer.com --limit 10 TELEGRAM
+python cli.py respond --output https://myDataBaseServer.com --limit 10 YOUTUBE
 ```
 
 ___
@@ -206,23 +209,12 @@ class MyShell(Shell):
 - **add_comment** - add comment to the source.
 - **add_response** - add response to the specified comment.
 
-***VK*** - api shell for the _https://vk.com_ with common shell interface.
-
-```python
-from ycta_spider.api.vk.shell import Shell
-```
-
 ***YOUTUBE*** - api shell for the _https://youtube.com_ with common shell interface.
 
 ```python
 from ycta_spider.api.youtube.shell import Shell
 ```
 
-***TELEGRAM*** - api shell for the _https://web.telegram.org_ with common shell interface.
-
-```python
-from ycta_spider.api.telegram.shell import Shell
-```
 ___
 
 #### Sentiment:

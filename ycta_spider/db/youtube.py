@@ -1,59 +1,45 @@
-import os
-from csv import reader, writer
+__licence__ = 'MIT'
+__author__ = 'pvp'
+__credits__ = ['pvp']
+__maintainer__ = 'pvp'
+__date__ = '2022/07/17'
+
 from typing import Iterable
 
-import psycopg2
+from ycta_spider.structures.youtube import YoutubeVideo, YoutubeChannel, PrimaryComment, SecondaryComment
+from ycta_spider.db.common import PsqlConnector
+from ycta_spider.structures.common import Source
 
-from ycta_spider.file_manager.reader import read_config
-from ycta_spider.structures.youtube import Channel, Channels, VideoInfo
-from ycta_spider.structures.common import SourceInfo
+def send_info(info: Iterable[Source], table: str):
+    """store youtube-related data in the DB
 
-ID_SUFFIXES = ['c', 'channel', 'user']
-
-
-class ChannelCache:
-    @staticmethod
-    def cache_path():
-        return os.path.join(read_config()['data_path'], 'youtube')
-
-    @classmethod
-    def load_channels(cls) -> Channels:
-        channels = []
-        with open(os.path.join(cls.cache_path(), 'channels.csv'), newline='') as csvfile:
-            spam_reader = reader(csvfile, delimiter=',', quotechar='|')
-            next(spam_reader)
-            for (idx, id_suffix, is_anti_put, desc) in spam_reader:
-                suffix = ID_SUFFIXES[int(id_suffix)]
-                ch_kwargs = {'name': idx, 'is_anti_put': int(is_anti_put), 'suffix': suffix, 'desc': desc}
-                if suffix == 'channel':
-                    ch_kwargs['channel_id'] = idx
-                channels.append(Channel(**ch_kwargs))
-        return channels
-
-    @classmethod
-    def add_channels(cls, name: str, is_anti_put: int, suffix: str, desc: str):
-        with open(os.path.join(cls.cache_path(), 'channels.csv'), 'a', newline='') as f:
-            writer(f).writerow([name, ID_SUFFIXES.index(suffix), is_anti_put, desc])
-
-
-def store_info(info: Iterable[SourceInfo], table: str):
-    if table == "video_info":
-        with YoutubePsqlConnector() as conn:
+    :param info: iterable object with info represented via dataclass
+    :param table: table that's matched with the input type, should be video_info, channel_info or comments
+    """
+    with YoutubePsqlConnector() as conn:
+        if table == "video_info":
             conn.add_video_info(info)
-    else:
-        raise NotImplementedError  # TODO channel & comment
+        elif table == "channel_info":
+            conn.add_channel_info(info)
+        elif table == "primary_comment":
+            conn.add_primary_comments(info)
+        elif table == "secondary_comment":
+            conn.add_secondary_comments(info)
 
 
-class YoutubePsqlConnector:
-    _VIDEO_INFO_TABLE_CREATION_QUERY = """
+class YoutubePsqlConnector(PsqlConnector):
+    """Use to create and interact with the DB tables of the Youtube DB.
+    Use via the context syntax, to ensure that no outstanding connections are left hanging."""
+    __table_creation_query = """
         create table video_info
         (
             idx              char(11) not null,
             time             timestamptz not null,
+            publish_time     timestamptz not null,
+            channel_id       char(24) not null,
             title            text,
             description      text,
             duration         varchar(12),
-            channel_id       char(24) not null,
             channel_title    text,
             tags             text[],
             category_id      int,
@@ -65,42 +51,28 @@ class YoutubePsqlConnector:
 
         create unique index video_info_idx_uindex
             on video_info (idx);
-    """  # when testing, run once to create a table locally
-    _DB = 'youtube'
+    """
+    __db = 'youtube'
+    __cols = YoutubeVideo.psql_cols()
 
-    def __init__(self, config=None):
-        if config is None:
-            config = read_config()
-        self._psql_config = config['psql']
-        self._connector = None
+    def add_video_info(self, info: Iterable[YoutubeVideo]):
+        """add entries from the info object to the video_info table in one query.
+        Inserts on first entry, updates on conflicts."""
+        self.run_query(
+            "INSERT INTO video_info (" +
+            ", ".join(self.__cols) +
+            ") VALUES " +
+            ", ".join([entry.psql_to_value(self.__cols) for entry in info]) +
+            " ON CONFLICT (idx) DO UPDATE SET " +
+            ", ".join([f'{key} = excluded.{key}' for key in self.__cols]) +
+            ';'
+        )
 
-    def __enter__(self):
-        self._connector = psycopg2.connect(database=self._DB, **self._psql_config)
-        return self
+    def add_channel_info(self, info: Iterable[YoutubeChannel]):
+        raise NotImplementedError  # TODO
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        self._connector.commit()
-        self._connector.close()
-        self._connector = None
+    def add_primary_comments(self, info: Iterable[PrimaryComment]):
+        raise NotImplementedError  # TODO
 
-    def run_query(self, query: str):
-        assert self._connector is not None, "initialize using with context"
-        with self._connector.cursor() as cur:
-            cur.execute(query)
-
-    def add_video_info(self, info: Iterable[VideoInfo]):
-        query = f'INSERT INTO video_info ' \
-                f'(idx, time, title, description, duration, channel_id, channel_title, tags, ' \
-                f'category_id, view_count, like_count, comment_count, topic_categories) VALUES '
-        isnt_first = False
-        for entry in info:
-            if isnt_first:
-                query += ','
-            tag_list = "'{\"" + '","'.join(entry.tags) + "\"}'"
-            topic_list = "'{\"" + '","'.join(entry.topic_categories) + "\"}'"
-            query += f"('{entry.idx}', '{entry.time}', '{entry.title}', '{entry.description}', '{entry.duration}', " \
-                   f"'{entry.channel_id}', '{entry.channel_title}', {tag_list}, {entry.category_id}, " \
-                   f"{entry.view_count}, {entry.like_count}, {entry.comment_count}, {topic_list})"
-            isnt_first = True
-        query += ';'
-        self.run_query(query)
+    def add_secondary_comments(self, info: Iterable[SecondaryComment]):
+        raise NotImplementedError  # TODO

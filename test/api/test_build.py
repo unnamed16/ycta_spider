@@ -6,7 +6,7 @@ __date__ = '2022/05/27'
 
 from unittest import TestCase
 
-from ycta_spider.api.shell import PlatformType
+from ycta_spider.structures.common import PlatformType
 from ycta_spider.api import build
 
 
