@@ -9,7 +9,7 @@ __date__ = '2022/06/02'
 from dataclasses import dataclass, fields, field
 import datetime as dt
 from enum import Enum
-from typing import List, Any, Dict, Iterable
+from typing import List, Any, Dict, Iterable, Tuple
 
 
 class PlatformType(Enum):
@@ -27,7 +27,7 @@ class ResponseCode(Enum):
 @dataclass
 class Response:
     code: ResponseCode
-    content: Dict[str, Any]
+    content: Dict[str, Any] = field(default_factory=lambda: dict())
 
 
 @dataclass(kw_only=True)
@@ -83,7 +83,16 @@ class GradedEntry(TimedEntry):
 
 @dataclass(kw_only=True)
 class Source(GradedEntry):
+    type: str = ''  # e.g., videoId
     title: str = ''  # aka human-readable ID
+
+    def as_tuple(self) -> Tuple[str, str]:
+        return self.type, self.idx
+
+    @classmethod
+    def from_tuple(cls, tp: Tuple[str, str]) -> Source:
+        t, idx = tp
+        return cls(idx=idx, type=t)
 
 
 Source.build()

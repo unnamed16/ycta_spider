@@ -4,7 +4,7 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-from typing import Callable, Dict, List, Iterator, Iterable
+from typing import Callable, Dict, List, Iterator, Tuple
 import json
 from dateutil.parser import isoparse
 from datetime import datetime, timedelta
@@ -17,6 +17,8 @@ import requests
 from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, YoutubeComment, SearchOrder
 from ycta_spider.api.shell import Shell as CommonShell
 from ycta_spider.structures.common import PlatformType, ResponseCode, Source, Response
+from ycta_spider.file_manager.writer import save_config
+from ycta_spider.file_manager.reader import read_config
 
 
 class Shell(CommonShell):
@@ -60,9 +62,18 @@ class Shell(CommonShell):
         })
         return json.loads(access_token.text)
 
+    def get_and_write_access_token(self, authorization_code: str):
+        """writes access token to the config"""
+        token = self.get_access_token(authorization_code)['access_token']
+        config = read_config()
+        for conf in (self.config, config):
+            conf['platforms'][self.platform_type.name]['access_token'] = token
+        save_config(config)
+
+
     def get_comments(
             self,
-            source: Source,
+            source: Tuple[str, str],
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE,
             page_token: str = '') -> Iterator[YoutubeComment]:
@@ -86,8 +97,8 @@ class Shell(CommonShell):
         )
         response = requests.get(f'{query}&pageToken={page_token}', headers=self.common_headers)
         comments = Shell.__parse(response, Shell.__parse_comments)
-        if comments['code'] == ResponseCode.OK:
-            for comment in comments['result']:
+        if comments.code == ResponseCode.OK:
+            for comment in comments.content['result']:
                 yield comment
             next_page_token = response.json().get('nextPageToken', None)
             if next_page_token is not None:
@@ -105,12 +116,12 @@ class Shell(CommonShell):
 
     def get_comments_from_several_sources(
             self,
-            sources: List[Source] = None,
+            sources: List[Tuple[str, str]] = None,
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[YoutubeComment]:
         """
         Return all comments for the several specified sources\n
-        :param sources: source descriptions list where from the comments have to be obtained
+        :param sources: pairs (videoId, )
         :param limit: limit of the comments to download from each source
         :param order: sort order of the obtained data
         :return: Generator of the Comments
@@ -195,7 +206,7 @@ class Shell(CommonShell):
             ]
         return result
 
-    def add_comment(self, source: Source, comment: str) -> Response:
+    def add_comment(self, source: Tuple[str, str], comment: str) -> Response:
         func = 'commentThreads'
         part = 'snippet'
         query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
@@ -306,7 +317,7 @@ class Shell(CommonShell):
         return self.config['sources'][self.platform_type.name]
         # TODO: get sources from Info DB
 
-    def update_sources(self) -> Iterator[Source]:
+    def update_sources(self) -> Iterator[Tuple[str, str]]:
         return self.config['sources'][self.platform_type.name]
         # TODO: update sources from Sources DB
 
@@ -391,23 +402,16 @@ class Shell(CommonShell):
         url = f'https://www.youtube.com/{suffix}/{name}'
         req = requests.get(url, 'html.parser')
         if not req.ok:
-            return {
-                'code': ResponseCode.ERROR,
+            return Response(code=ResponseCode.ERROR, content={
                 'message': f'failed to fetch the source at {url}',
                 'response.status_code': str(req.status_code),
                 'response.reason': req.reason
-            }
+            })
         text = req.text
         loc = text.find('externalId')
         if loc == -1:
-            return {
-                'code': ResponseCode.ERROR,
-                'message': f'failed to find key identifier (externalId) on {suffix}/{name}'
-            }
-        return {
-            'code': ResponseCode.OK,
-            'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]
-        }
+            return Response(code=ResponseCode.ERROR, content={'message': f'failed to find key identifier (externalId) on {suffix}/{name}'})
+        return Response(code=ResponseCode.OK, content={'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]})
 
     @staticmethod
     def __parse(r: requests.Response, parser: Callable) -> Response:

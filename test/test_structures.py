@@ -13,10 +13,10 @@ class CommonStructuresTestCase(unittest.TestCase):
 
     def test_source(self):
         source = common.Source(idx='idx', grade_confidence=-1, title='some', time=dt.datetime(1966, 6, 6, 6, 6))
-        self.assertEqual(source._cols, ['idx', 'time', 'grade', 'grade_confidence', 'title'])
-        self.assertEqual(source.to_query_vals(), "('idx', '1966-06-06 06:06:00', 0.0, -1, 'some')")
+        self.assertEqual(source._cols, ['idx', 'time', 'grade', 'grade_confidence', 'type', 'title'])
+        self.assertEqual(source.to_query_vals(), "('idx', '1966-06-06 06:06:00', 0.0, -1, '', 'some')")
         self.assertEqual(source, common.Source.inst_from_psql_output([
-            source.idx, source.time, source.grade, source.grade_confidence, source.title
+            source.idx, source.time, source.grade, source.grade_confidence, '', source.title
         ]))
 
 
