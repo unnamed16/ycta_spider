@@ -15,13 +15,13 @@ import pytz
 import requests
 
 from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, YoutubeComment, SearchOrder
-from ycta_spider.api.shell import Shell as CommonShell
+from ycta_spider.api.shell import Shell
 from ycta_spider.structures.common import PlatformType, ResponseCode, Source, Response
 from ycta_spider.file_manager.writer import save_config
 from ycta_spider.file_manager.reader import read_config
 
 
-class Shell(CommonShell):
+class YoutubeShell(Shell):
     __CHID_OFFSET_FROM = 13
     __CHID_OFFSET_TO = 37
     __V3_URL = 'https://www.googleapis.com/youtube/v3/'
@@ -35,7 +35,7 @@ class Shell(CommonShell):
 
     def __init__(self):
         super().__init__()
-        self.__platform_type = PlatformType.YOUTUBE
+        self._platform_type = PlatformType.YOUTUBE
         platform_config = self.config['platforms'][self.platform_type.name]
         self.__sources = self.update_sources()
         self.__api_key = platform_config['api_key']
@@ -70,33 +70,37 @@ class Shell(CommonShell):
             conf['platforms'][self.platform_type.name]['access_token'] = token
         save_config(config)
 
+    def __query_builder(self, func: str, pars: dict=None) -> str:
+        result = f'{self.__V3_URL}{func}'
+        if pars is None or len(pars) == 0:
+            return result
+        return '?'.join([result, '&'.join([f'{k}={v}' for k, v in pars.items()])])
+
 
     def get_comments(
             self,
-            source: Tuple[str, str],
+            source: str = None,
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE,
             page_token: str = '') -> Iterator[YoutubeComment]:
         """
         Return all comments for the specified source\n
-        :param source: ('videoId', 'MyYoutubeVideoId')
+        :param source: videoId (11 letters)
         :param limit: will download all the comments if None
         :param order: time (starts with more recent) or relevance
         :param page_token: is needed for recursive upload from a concrete page
         :return: generator of comments
         """
-        func = 'commentThreads'
-        part = 'snippet,replies,id'
-        query = str(
-            f'{self.__V3_URL}{func}?'
-            f'part={part}&'
-            f'{source[0]}={source[1]}&'
-            f'key={self.__api_key}&'
-            f'maxResults={self.__COMMENTS_BATCH_SIZE if limit is None else min(self.__COMMENTS_BATCH_SIZE, limit)}&'
-            f'order={order.value}'
-        )
-        response = requests.get(f'{query}&pageToken={page_token}', headers=self.common_headers)
-        comments = Shell.__parse(response, Shell.__parse_comments)
+        query = self.__query_builder(func='commentThreads', pars={
+            'part': 'snippet,replies,id',
+            'videoId': source,
+            'key': self.__api_key,
+            'maxResults': self.__COMMENTS_BATCH_SIZE if limit is None else min(self.__COMMENTS_BATCH_SIZE, limit),
+            'order': order.value,
+            'pageToken': page_token
+        })
+        response = requests.get(query, headers=self.common_headers)
+        comments = YoutubeShell.__parse(response, YoutubeShell.__parse_comments)
         if comments.code == ResponseCode.OK:
             for comment in comments.content['result']:
                 yield comment
@@ -112,7 +116,7 @@ class Shell(CommonShell):
     @staticmethod
     def __parse_comments(comments_json: Dict) -> Iterator[YoutubeComment]:
         for comment in comments_json['items']:
-            yield Shell.__parse_parent_comment(comment)
+            yield YoutubeShell.__parse_parent_comment(comment)
 
     def get_comments_from_several_sources(
             self,
@@ -192,24 +196,27 @@ class Shell(CommonShell):
 
     @staticmethod
     def __parse_parent_comment(thread: Dict) -> YoutubeComment:
-        _thread_id = thread['id']
-        _main_comment = thread['snippet']
-        result = Shell.__parse_one_comment(
-            _main_comment['topLevelComment'],
-            _thread_id,
+        thread_id = thread['id']
+        main_comment = thread['snippet']
+        result = YoutubeShell.__parse_one_comment(
+            main_comment['topLevelComment'],
+            thread_id,
             is_top_level=True,
-            reply_count=_main_comment['totalReplyCount'])
+            reply_count=main_comment['totalReplyCount'])
         if 'replies' in thread:
             result['replies'] = [
-                Shell.__parse_one_comment(reply, _thread_id)
+                YoutubeShell.__parse_one_comment(reply, thread_id)
                 for reply in thread['replies']['comments']
             ]
         return result
 
-    def add_comment(self, source: Tuple[str, str], comment: str) -> Response:
-        func = 'commentThreads'
-        part = 'snippet'
-        query = f'{self.__V3_URL}{func}?part={part}&{source}&key={self.__api_key}'
+    def add_comment(self, source: str, comment: str) -> Response:
+        """
+        :param source: videoId
+        :param comment: text of the message
+        :return: response
+        """
+        query = self.__query_builder(func='commentThreads', pars={'part': 'snippet', 'videoId': source, 'key': self.__api_key})
         headers = dict(self.common_headers)
         headers['Authorization'] = f'Bearer {self.__access_token}'
         data = {
@@ -224,7 +231,7 @@ class Shell(CommonShell):
         }
         comments = requests.post(query, headers=headers, data=data)
         # TODO: make proper parser for the response
-        return Shell.__parse(comments, Shell.__parse_one_comment)
+        return YoutubeShell.__parse(comments, YoutubeShell.__parse_one_comment)
 
     @staticmethod
     def __parse_one_comment(
@@ -365,7 +372,7 @@ class Shell(CommonShell):
             f'pageToken={page_token}'
         )
         req = requests.get(url)
-        result = Shell.__parse(req, partial(Shell.__parse_video_ids, channel_id=channel.channel_id))
+        result = YoutubeShell.__parse(req, partial(YoutubeShell.__parse_video_ids, channel_id=channel.channel_id))
         if result['code'] == ResponseCode.ERROR:
             result['message'] = f'failed to find videos on {channel_id}'
         elif result['code'] == ResponseCode.OK:
@@ -414,26 +421,18 @@ class Shell(CommonShell):
         return Response(code=ResponseCode.OK, content={'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]})
 
     @staticmethod
-    def __parse(r: requests.Response, parser: Callable) -> Response:
-        if not r.ok:
-            return {
-                'code': ResponseCode.ERROR,
-                'response.status_code': str(r.status_code),
-                'response.reason': r.reason
-            }
+    def __parse(response: requests.Response, parser: Callable) -> Response:
+        if not response.ok:
+            return Response(
+                code=ResponseCode.ERROR,
+                content={'response.status_code': str(response.status_code),
+                         'response.reason': response.reason})
         try:
-            js = r.json()
-            parsed = {
-                'code': ResponseCode.OK,
-                'result': parser(js)
-            }
+            js = response.json()
+            parsed = Response(code=ResponseCode.OK, content={'result': parser(js)})
             return parsed
         except Exception as e:
-            return {
-                'code': ResponseCode.PARSE_ERROR,
-                'message': str(e),
-                'response.text': r.text
-            }
+            return Response(code=ResponseCode.PARSE_ERROR, content={'message': str(e), 'response.text': response.text})
 
     def __get_videos_info(self, videos: List[str]) -> Response:
         func = 'videos'
@@ -489,4 +488,4 @@ class Shell(CommonShell):
 
     @staticmethod
     def __parse_video_info(request_json: Dict) -> List[YoutubeVideo]:
-        return list(map(Shell.__parse_single_video_info, request_json['items']))
+        return list(map(YoutubeShell.__parse_single_video_info, request_json['items']))

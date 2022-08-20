@@ -131,3 +131,5 @@ dmypy.json
 /notebooks/
 config.json
 *.lock
+
+*.ipynb

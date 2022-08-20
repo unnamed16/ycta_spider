@@ -5,7 +5,7 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
 from ycta_spider.structures.common import PlatformType
-from ycta_spider.api.youtube.shell import Shell as YoutubeShell
+from ycta_spider.api.youtube.shell import YoutubeShell
 
 __shells = {
     PlatformType.YOUTUBE: YoutubeShell

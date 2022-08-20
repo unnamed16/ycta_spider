@@ -7,7 +7,7 @@ __date__ = '2022/05/27'
 from typing import Iterator, List
 
 from ycta_spider.file_manager.reader import read_config
-from ycta_spider.structures.common import PlatformType, Source, Comment, Source
+from ycta_spider.structures.common import PlatformType, Comment, Source
 from ycta_spider.structures.youtube import SearchOrder
 
 
@@ -26,11 +26,11 @@ class Shell:
             'Content-Type': 'application/json'
         }
         self.config = read_config()
-        self.__platform_type = None
+        self._platform_type = None
 
     @property
     def platform_type(self) -> PlatformType:
-        return self.__platform_type
+        return self._platform_type
 
     def get_source_info(self, source: Source, limit: int, order: SearchOrder) -> Iterator[Source]:
         """
