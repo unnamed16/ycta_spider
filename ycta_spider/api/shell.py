@@ -4,7 +4,7 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
-from abc import abstractmethod, ABC
+from abc import ABC
 from typing import Iterator, List, Iterable
 
 from ycta_spider.file_manager.reader import read_config

@@ -72,7 +72,7 @@ class PsqlEntry:
     @classmethod
     def inst_from_psql_output(cls, vals: List) -> PsqlEntry:
         """create object from the output of an sql query"""
-        return cls(**dict(zip(cls.columns, vals)))  # noqa: F401
+        return cls(**dict(zip(cls.columns, vals)))  # noqa
 
 
 @dklass_kwonly
@@ -84,21 +84,19 @@ class TimedEntry(PsqlEntry):
 class GradedEntry(TimedEntry):
     grade: float = 0.
     grade_confidence: float = 0.
+    access_count: int = 0
 
 @dklass_kwonly
 class Source(GradedEntry):
-    type: str = ''
-    title: str = ''
+    pass
 
 
-Source.build()
 Sources = Iterable[Source]
 
 
 @dklass_kwonly
 class Comment(GradedEntry):
     text: str
-    access_count: int = 0
 
 
 Comment.build()

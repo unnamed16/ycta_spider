@@ -11,24 +11,9 @@ from dataclasses import field
 from enum import Enum
 from typing import List, Tuple, Union, Iterable
 from dateutil.parser import isoparse
+from isodate import parse_duration
 
 from ycta_spider.structures.common import Source, Comment, dklass_kwonly
-
-
-@dklass_kwonly
-class YoutubeVideo(Source):
-    publish_time: dt.datetime = None
-    title: str = None
-    description: str = None
-    channel_id: str = None
-    duration: str = None
-    channel_title: str = None
-    tags: List[str] = None
-    category_id: int = None
-    view_count: int = None
-    like_count: int = None
-    comment_count: int = None
-    topic_categories: List[str] = None
 
 @dklass_kwonly
 class YoutubeComment(Comment):
@@ -65,6 +50,13 @@ class YoutubePrimaryComment(YoutubeComment):
     def children_idx(self):
         return ['.'.join([self.idx, suff]) for suff in self.children_idx_suff]
 
+    @classmethod
+    def inst_from_psql_output(cls, vals: List) -> YoutubePrimaryComment:
+        inst = super().inst_from_psql_output(vals)
+        if inst.total_reply_count == 0:
+            inst.children_idx_suff = []
+        return inst  # noqa
+
 YoutubePrimaryComment.build()
 
 @dklass_kwonly
@@ -75,9 +67,10 @@ class YoutubeSecondaryComment(YoutubeComment):
 
 
 YoutubeSecondaryComment.build()
+YoutubeCommentBundle = Tuple[YoutubePrimaryComment, List[YoutubeSecondaryComment]]
 
 
-def process_top_level_comments(comment: dict) -> Tuple[YoutubePrimaryComment, List[YoutubeSecondaryComment]]:
+def process_top_level_comments(comment: dict) -> YoutubeCommentBundle:
     replies = comment.get('replies', {'comments': []})['comments']
     secondary_comments = [YoutubeSecondaryComment(**_comment_to_relevant_dict(reply)) for reply in replies]
     snippet = comment['snippet']
@@ -87,6 +80,47 @@ def process_top_level_comments(comment: dict) -> Tuple[YoutubePrimaryComment, Li
         children_idx_suff=[c.idx.split('.')[1] for c in secondary_comments],
         **_comment_to_relevant_dict(snippet['topLevelComment']))
     return primary_comment, secondary_comments
+
+
+@dklass_kwonly
+class YoutubeVideo(Source):
+    etag: str
+    published_at: dt.datetime
+    channel_id: str
+    title: str
+    description: str
+    duration: float  # in seconds
+    category_id: int
+    view_count: int
+    like_count: int
+    comment_count: int
+    tags: List[str]
+    topic_categories: List[str]
+
+    @classmethod
+    def from_get_response(cls, response: dict) -> YoutubeVideo:
+        assert len(response['items']) == 1
+        item = response['items'][0]
+        snippet = item['snippet']
+        stats = item['statistics']
+        kwargs = dict(
+            idx=item['id'],
+            etag=item['etag'],
+            published_at=snippet['publishedAt'],
+            channel_id=snippet['channelId'],
+            title=snippet['title'],
+            description=snippet['description'],
+            duration=parse_duration(item['contentDetails']['duration']).total_seconds(),
+            view_count=stats['viewCount'],
+            like_count=stats['likeCount'],
+            comment_count=stats['commentCount'],
+            category_id=snippet['categoryId'],
+            tags=snippet['tags'],
+            topic_categories=item['topicDetails']['topicCategories'],
+        )
+        return cls(**kwargs)  # noqa
+
+YoutubeVideo.build()
 
 
 class YoutubeChannel(Source):

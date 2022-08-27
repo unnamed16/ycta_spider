@@ -6,6 +6,7 @@ __date__ = '2022/07/17'
 
 from typing import Iterable, List, Type
 from abc import ABC, abstractmethod
+from functools import wraps
 
 from ycta_spider.structures.common import Response, ResponseCode, GradedEntry
 from ycta_spider.structures.youtube import YoutubeVideo, YoutubeChannel, YoutubePrimaryComment, YoutubeSecondaryComment, YoutubeInfo
@@ -55,7 +56,10 @@ class YoutubeTable(PsqlTable, ABC):
         with cls() as conn:
             query = f"SELECT " + ", ".join(conn._cols) + f" FROM {cls._name} WHERE idx IN ('" + "', '".join(idxs) +  "');"
             try:
-                return Response(code=ResponseCode.OK, content={'result': conn.run_query(query)})
+                return Response(code=ResponseCode.OK, content={'result': [
+                    cls._youtube_structure.inst_from_psql_output(vals)  # noqa
+                    for vals in conn.run_query(query)
+                ]})
             except Exception as e:
                 return Response(code=ResponseCode.ERROR, content={'message': str(e), 'psql_query': query})
 
@@ -88,7 +92,7 @@ class YoutubePrimaryCommentTable(YoutubeTable):
     _table_creation_query = _comments_creation_query_common(_name, 26) + f""",
             video_id            char(11)                 not null,
             total_reply_count   integer                  not null,
-            children_idx_suff   char(22)[]               not null
+            children_idx_suff   char(22)[]
         );
         
         comment on table {_name} is 'top-level comments (thread-starters)';
@@ -107,30 +111,33 @@ class YoutubeSecondaryCommentTable(YoutubeTable):
 
 class YoutubeVideoTable(YoutubeTable):
     _name = 'video_info'
+
     _table_creation_query = f"""
             create table if not exists {_name}
         (
-            idx                 char(26)                 not null
-                constraint primary_comments_pkey
+            idx                 char(11)                 not null
+                constraint {_name}_pkey
                     primary key,
             time                timestamp with time zone not null,
             grade               real                     not null,
             grade_confidence    real                     not null,
-            text                varchar(10000)           not null,
             access_count        integer                  not null,
-            text_original       varchar(10000)           not null,
             etag                char(27)                 not null,
-            author_display_name text[]                   not null,
-            author_channel_id   char(24)                 not null,
-            like_count          integer                  not null,
             published_at        timestamp with time zone not null,
-            updated_at          timestamp with time zone not null,
-            video_id            char(11)                 not null,
-            total_reply_count   integer                  not null,
-            children_idx_suff   char(22)[]               not null
+            channel_id          char(24)                 not null,            
+            title               varchar(100)             not null,
+            description         varchar(5000)            not null,
+            duration            real                     not null,
+            category_id         integer                  not null,
+            view_count          integer                  not null,
+            like_count          integer                  not null,
+            comment_count       integer                  not null,
+            tags                text[][]                 not null,
+            topic_categories    text[][]                 not null
         );
+        
+        comment on table {_name} is 'video meta data';
 
-        comment on table primary_comments is 'top-level comments (thread-starters)';
     """
     _youtube_structure = YoutubeVideo
 
@@ -169,11 +176,23 @@ class YoutubeChannelTable(YoutubeTable):
 __TABLE_STR_TO_CLASS = {
     'video_info': YoutubeVideoTable,
     'channel_info': YoutubeChannelTable,
-    'primary_comment': YoutubePrimaryCommentTable,
-    'secondary_comment': YoutubeSecondaryCommentTable
+    'primary_comments': YoutubePrimaryCommentTable,
+    'secondary_comments': YoutubeSecondaryCommentTable
 }
 
 
+def info_exch_error_msg(fun):
+    @wraps(fun)
+    def with_try(arg, table: str):
+        try:
+            return fun(arg, table)
+        except KeyError:
+            error_msg = f'table can be ' + ', '.join([str(k) for k in __TABLE_STR_TO_CLASS.keys()])
+            return Response(code=ResponseCode.ERROR, content={'message': error_msg})
+    return with_try
+
+
+@info_exch_error_msg
 def send_info(info: YoutubeInfo, table: str) -> Response:
     """store youtube-related data in the DB
 
@@ -181,20 +200,9 @@ def send_info(info: YoutubeInfo, table: str) -> Response:
     :param table: table that's matched with the input type, should be video_info, channel_info or comments
     :returns: result of the operation
     """
-    if table == "video_info":
-        YoutubeVideoTable.add_info(info)
-    with YoutubePrimaryCommentTable() as conn:
+    return __TABLE_STR_TO_CLASS[table].add_info(info)
 
-        if table == "video_info":
-            conn.add_video_info(info)
-        elif table == "channel_info":
-            conn.add_channel_info(info)
-        elif table == "primary_comment":
-            conn.add_primary_comments(info)
-        elif table == "secondary_comment":
-            conn.add_secondary_comments(info)
-
-
+@info_exch_error_msg
 def get_info(idxs: Iterable[str], table: str) -> Response:
     """try to store youtube-related data in the DB
 
@@ -202,16 +210,4 @@ def get_info(idxs: Iterable[str], table: str) -> Response:
     :param table: table that's matched with the input type, should be video_info, channel_info or comments
     :returns: result of the operation
     """
-    # if table == "video_info":
-    #     YoutubeVideo
-    # with YoutubePrimaryCommentTable() as conn:
-    #
-    #     if table == "video_info":
-    #         conn.add_video_info(info)
-    #     elif table == "channel_info":
-    #         conn.add_channel_info(info)
-    #     elif table == "primary_comment":
-    #         conn.add_primary_comments(info)
-    #     elif table == "secondary_comment":
-    #         conn.add_secondary_comments(info)
-    pass
+    return __TABLE_STR_TO_CLASS[table].get_info_by_idxs(idxs)

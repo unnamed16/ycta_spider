@@ -65,6 +65,7 @@ class PsqlTable:
                 return cur.fetchall()
             except psycopg2.ProgrammingError:
                 return None
-
-    def create_table(self):
-        self.run_query(self._table_creation_query)
+    @classmethod
+    def create_table(cls):
+        with cls() as conn:
+            conn.run_query(conn._table_creation_query)

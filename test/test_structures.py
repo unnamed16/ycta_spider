@@ -66,4 +66,4 @@ class YoutubeStructuresTestCase(unittest.TestCase):
                     'publishedAt': '2022-08-21T13:51:45Z',
                     'updatedAt': '2022-08-21T13:51:45Z'}}]}
         })
-        assert secondary_comments[0].parent_idx == primary_comment.idx
+        self.assertEqual(secondary_comments[0].parent_idx, primary_comment.idx)
