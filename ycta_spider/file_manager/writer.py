@@ -39,10 +39,10 @@ def save_json(data: Any, path: Union[str, Path]) -> None:
     :param data: data to save
     :param path: string with the path to an output file
     """
-    save_file(json.dumps(data, indent=2), path)
+    save_file(json.dumps(data, indent=2, default=str), path)
 
 
-def save_csv(data: Iterable[Iterable[Any]], path: Union[str, Path], headers: Iterable[str] = None) -> None:
+def save_csv(data: Iterable[Any], path: Union[str, Path], headers: Iterable[str] = None) -> None:
     """
     Save data to a CSV file\n
     :param data: data to save

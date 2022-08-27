@@ -7,9 +7,9 @@ __maintainer__ = 'pvp'
 __date__ = '2022/05/30'
 
 import datetime as dt
-from dataclasses import dataclass, field
+from dataclasses import field
 from enum import Enum
-from typing import List, Tuple
+from typing import List, Tuple, Union, Iterable
 from dateutil.parser import isoparse
 
 from ycta_spider.structures.common import Source, Comment, dklass_kwonly
@@ -32,50 +32,59 @@ class YoutubeVideo(Source):
 
 @dklass_kwonly
 class YoutubeComment(Comment):
-    textOriginal: str
+    text_original: str
     etag: str
-    authorDisplayName: str
-    authorChannelId: str
-    likeCount: int
-    publishedAt: dt.datetime
-    updatedAt: dt.datetime
+    author_display_name: str
+    author_channel_id: str
+    like_count: int
+    published_at: dt.datetime
+    updated_at: dt.datetime
 
 def _comment_to_relevant_dict(comment: dict) -> dict:
-    result = {'idx': comment['id'], 'etag': comment['etag']}
     snippet = comment['snippet']
-    result['text'] = snippet['textDisplay']
-    result.update({field: snippet[field] for field in ['textOriginal', 'authorDisplayName']})
-    result['authorChannelId'] = snippet['authorChannelId']['value']
-    result['likeCount'] = int(snippet['likeCount'])
-    result.update({field: isoparse(snippet[field]) for field in ['publishedAt', 'updatedAt']})
-    return result
+    return {
+        'idx': comment['id'],
+        'etag': comment['etag'],
+        'text': snippet['textDisplay'],
+        'text_original': snippet['textOriginal'],
+        'author_display_name': snippet['authorDisplayName'],
+        'author_channel_id': snippet['authorChannelId']['value'],
+        'like_count': snippet['likeCount'],
+        'published_at': isoparse(snippet['publishedAt']),
+        'updated_at': isoparse(snippet['updatedAt'])
+    }
 
 
 @dklass_kwonly
 class YoutubePrimaryComment(YoutubeComment):
-    videoId: str
-    totalReplyCount: int = 0
-    children_idx: List[str] = field(default_factory=lambda: [])
+    video_id: str
+    total_reply_count: int = 0
+    children_idx_suff: List[str] = field(default_factory=lambda: [])
+
+    @property
+    def children_idx(self):
+        return ['.'.join([self.idx, suff]) for suff in self.children_idx_suff]
 
 YoutubePrimaryComment.build()
 
 @dklass_kwonly
 class YoutubeSecondaryComment(YoutubeComment):
-    parent_idx: str
+    @property
+    def parent_idx(self) -> str:
+        return self.idx.split('.')[0]
+
 
 YoutubeSecondaryComment.build()
 
+
 def process_top_level_comments(comment: dict) -> Tuple[YoutubePrimaryComment, List[YoutubeSecondaryComment]]:
-    replies = comment['replies']['comments']
+    replies = comment.get('replies', {'comments': []})['comments']
+    secondary_comments = [YoutubeSecondaryComment(**_comment_to_relevant_dict(reply)) for reply in replies]
     snippet = comment['snippet']
-    top_level_id = snippet['topLevelComment']['id']
-    secondary_comments = []
-    for reply in replies:
-        secondary_comments.append(YoutubeSecondaryComment(parent_idx=top_level_id, **_comment_to_relevant_dict(reply)))
     primary_comment = YoutubePrimaryComment(
-        videoId=snippet['videoId'],
-        totalReplyCount=snippet['totalReplyCount'],
-        children_idx=[c.idx for c in secondary_comments],
+        video_id=snippet['videoId'],
+        total_reply_count=snippet['totalReplyCount'],
+        children_idx_suff=[c.idx.split('.')[1] for c in secondary_comments],
         **_comment_to_relevant_dict(snippet['topLevelComment']))
     return primary_comment, secondary_comments
 
@@ -95,3 +104,6 @@ class SearchOrder(Enum):
     TITLE = 'title'
     VIDEO_COUNT = 'videoCount'
     VIEW_COUNT = 'viewCount'
+
+
+YoutubeInfo = Iterable[Union[YoutubeVideo, YoutubeChannel, YoutubePrimaryComment, YoutubeSecondaryComment]]

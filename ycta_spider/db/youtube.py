@@ -4,19 +4,187 @@ __credits__ = ['pvp']
 __maintainer__ = 'pvp'
 __date__ = '2022/07/17'
 
-from typing import Iterable
+from typing import Iterable, List, Type
+from abc import ABC, abstractmethod
 
-from ycta_spider.structures.youtube import YoutubeVideo, YoutubeChannel, PrimaryComment, SecondaryComment
-from ycta_spider.db.common import PsqlConnector
-from ycta_spider.structures.common import Source
+from ycta_spider.structures.common import Response, ResponseCode, GradedEntry
+from ycta_spider.structures.youtube import YoutubeVideo, YoutubeChannel, YoutubePrimaryComment, YoutubeSecondaryComment, YoutubeInfo
+from ycta_spider.db.common import PsqlTable
 
-def send_info(info: Iterable[Source], table: str):
+
+class YoutubeTable(PsqlTable, ABC):
+    _db = 'youtube'
+
+    @property
+    @abstractmethod
+    def _youtube_structure(self) -> Type[GradedEntry]:
+        pass
+
+    @property
+    def _cols(self) -> List[str]:
+        return self._youtube_structure.columns
+
+    @classmethod
+    def add_info(cls, info: YoutubeInfo) -> Response:
+        """
+        :param info: iterable with elements that match the table's contents
+        :return: successfulness of the operation
+        """
+        with cls() as conn:
+            query = (
+                f"INSERT INTO {cls._name} ("
+                + ", ".join(conn._cols)  # noqa
+                + ") VALUES "
+                + ", ".join([entry.to_query_vals() for entry in info])
+                + " ON CONFLICT (idx) DO UPDATE SET "
+                + ", ".join([f'{key} = excluded.{key}' for key in conn._cols])  # noqa
+                + ';'
+            )
+            try:
+                conn.run_query(query)
+                return Response(code=ResponseCode.OK)
+            except Exception as e:
+                return Response(code=ResponseCode.ERROR, content={'message': str(e), 'psql_query': query})
+
+    @classmethod
+    def get_info_by_idxs(cls, idxs: Iterable[str]) -> Response:
+        """
+        :param idxs: list if indexes
+        :return: result of the operation, list with info if successful
+        """
+        with cls() as conn:
+            query = f"SELECT " + ", ".join(conn._cols) + f" FROM {cls._name} WHERE idx IN ('" + "', '".join(idxs) +  "');"
+            try:
+                return Response(code=ResponseCode.OK, content={'result': conn.run_query(query)})
+            except Exception as e:
+                return Response(code=ResponseCode.ERROR, content={'message': str(e), 'psql_query': query})
+
+
+
+def _comments_creation_query_common(table: str, idx_len: int) -> str:
+    return f"""
+            create table if not exists {table}
+        (
+            idx                 char({idx_len})                 not null
+                constraint {table}_pkey
+                    primary key,
+            time                timestamp with time zone not null,
+            grade               real                     not null,
+            grade_confidence    real                     not null,
+            text                varchar(10000)           not null,
+            access_count        integer                  not null,
+            text_original       varchar(10000)           not null,
+            etag                char(27)                 not null,
+            author_display_name varchar(100)             not null,
+            author_channel_id   char(24)                 not null,
+            like_count          integer                  not null,
+            published_at        timestamp with time zone not null,
+            updated_at          timestamp with time zone not null
+    """
+
+
+class YoutubePrimaryCommentTable(YoutubeTable):
+    _name = 'primary_comments'
+    _table_creation_query = _comments_creation_query_common(_name, 26) + f""",
+            video_id            char(11)                 not null,
+            total_reply_count   integer                  not null,
+            children_idx_suff   char(22)[]               not null
+        );
+        
+        comment on table {_name} is 'top-level comments (thread-starters)';
+    """
+    _youtube_structure = YoutubePrimaryComment
+
+
+class YoutubeSecondaryCommentTable(YoutubeTable):
+    _name = 'secondary_comments'
+    _table_creation_query = _comments_creation_query_common(_name, 49) + f""");
+
+        comment on table {_name} is 'replies to top-level comments';
+    """
+    _youtube_structure = YoutubeSecondaryComment
+
+
+class YoutubeVideoTable(YoutubeTable):
+    _name = 'video_info'
+    _table_creation_query = f"""
+            create table if not exists {_name}
+        (
+            idx                 char(26)                 not null
+                constraint primary_comments_pkey
+                    primary key,
+            time                timestamp with time zone not null,
+            grade               real                     not null,
+            grade_confidence    real                     not null,
+            text                varchar(10000)           not null,
+            access_count        integer                  not null,
+            text_original       varchar(10000)           not null,
+            etag                char(27)                 not null,
+            author_display_name text[]                   not null,
+            author_channel_id   char(24)                 not null,
+            like_count          integer                  not null,
+            published_at        timestamp with time zone not null,
+            updated_at          timestamp with time zone not null,
+            video_id            char(11)                 not null,
+            total_reply_count   integer                  not null,
+            children_idx_suff   char(22)[]               not null
+        );
+
+        comment on table primary_comments is 'top-level comments (thread-starters)';
+    """
+    _youtube_structure = YoutubeVideo
+
+
+class YoutubeChannelTable(YoutubeTable):
+    _name = 'channel_info'
+    _table_creation_query = f"""
+            create table if not exists {_name}
+        (
+            idx                 char(26)                 not null
+                constraint primary_comments_pkey
+                    primary key,
+            time                timestamp with time zone not null,
+            grade               real                     not null,
+            grade_confidence    real                     not null,
+            text                varchar(10000)           not null,
+            access_count        integer                  not null,
+            text_original       varchar(10000)           not null,
+            etag                char(27)                 not null,
+            author_display_name text[]                   not null,
+            author_channel_id   char(24)                 not null,
+            like_count          integer                  not null,
+            published_at        timestamp with time zone not null,
+            updated_at          timestamp with time zone not null,
+            video_id            char(11)                 not null,
+            total_reply_count   integer                  not null,
+            children_idx_suff   char(22)[]               not null
+        );
+
+        comment on table {_name} is 'meta-data on channels';
+    """
+    _youtube_structure = YoutubeChannel
+
+
+
+__TABLE_STR_TO_CLASS = {
+    'video_info': YoutubeVideoTable,
+    'channel_info': YoutubeChannelTable,
+    'primary_comment': YoutubePrimaryCommentTable,
+    'secondary_comment': YoutubeSecondaryCommentTable
+}
+
+
+def send_info(info: YoutubeInfo, table: str) -> Response:
     """store youtube-related data in the DB
 
     :param info: iterable object with info represented via dataclass
     :param table: table that's matched with the input type, should be video_info, channel_info or comments
+    :returns: result of the operation
     """
-    with YoutubePsqlConnector() as conn:
+    if table == "video_info":
+        YoutubeVideoTable.add_info(info)
+    with YoutubePrimaryCommentTable() as conn:
+
         if table == "video_info":
             conn.add_video_info(info)
         elif table == "channel_info":
@@ -27,52 +195,23 @@ def send_info(info: Iterable[Source], table: str):
             conn.add_secondary_comments(info)
 
 
-class YoutubePsqlConnector(PsqlConnector):
-    """Use to create and interact with the DB tables of the Youtube DB.
-    Use via the context syntax, to ensure that no outstanding connections are left hanging."""
-    __table_creation_query = """
-        create table video_info
-        (
-            idx              char(11) not null,
-            time             timestamptz not null,
-            publish_time     timestamptz not null,
-            channel_id       char(24) not null,
-            title            text,
-            description      text,
-            duration         varchar(12),
-            channel_title    text,
-            tags             text[],
-            category_id      int,
-            view_count       int,
-            like_count       int,
-            comment_count    int,
-            topic_categories text[]
-        );
+def get_info(idxs: Iterable[str], table: str) -> Response:
+    """try to store youtube-related data in the DB
 
-        create unique index video_info_idx_uindex
-            on video_info (idx);
+    :param idxs: fetch data by a list of indexes
+    :param table: table that's matched with the input type, should be video_info, channel_info or comments
+    :returns: result of the operation
     """
-    __db = 'youtube'
-    __cols = YoutubeVideo.psql_cols()
-
-    def add_video_info(self, info: Iterable[YoutubeVideo]):
-        """add entries from the info object to the video_info table in one query.
-        Inserts on first entry, updates on conflicts."""
-        self.run_query(
-            "INSERT INTO video_info (" +
-            ", ".join(self.__cols) +
-            ") VALUES " +
-            ", ".join([entry.psql_to_value(self.__cols) for entry in info]) +
-            " ON CONFLICT (idx) DO UPDATE SET " +
-            ", ".join([f'{key} = excluded.{key}' for key in self.__cols]) +
-            ';'
-        )
-
-    def add_channel_info(self, info: Iterable[YoutubeChannel]):
-        raise NotImplementedError  # TODO
-
-    def add_primary_comments(self, info: Iterable[PrimaryComment]):
-        raise NotImplementedError  # TODO
-
-    def add_secondary_comments(self, info: Iterable[SecondaryComment]):
-        raise NotImplementedError  # TODO
+    # if table == "video_info":
+    #     YoutubeVideo
+    # with YoutubePrimaryCommentTable() as conn:
+    #
+    #     if table == "video_info":
+    #         conn.add_video_info(info)
+    #     elif table == "channel_info":
+    #         conn.add_channel_info(info)
+    #     elif table == "primary_comment":
+    #         conn.add_primary_comments(info)
+    #     elif table == "secondary_comment":
+    #         conn.add_secondary_comments(info)
+    pass

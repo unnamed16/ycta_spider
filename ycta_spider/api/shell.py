@@ -4,14 +4,15 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
-from typing import Iterator, List
+from abc import abstractmethod, ABC
+from typing import Iterator, List, Iterable
 
 from ycta_spider.file_manager.reader import read_config
-from ycta_spider.structures.common import PlatformType, Comment, Source
+from ycta_spider.structures.common import PlatformType, Comment, Source, Response, Responses
 from ycta_spider.structures.youtube import SearchOrder
 
 
-class Shell:
+class Shell(ABC):
     __INFO_CONTINUOUS_DELAY = 900    # seconds
     __COMMENTS_CONTINUOUS_DELAY_FRESH = 60    # every minute
     __COMMENTS_CONTINUOUS_DELAY_MEDIUM = 900  # every 15 minutes
@@ -32,41 +33,31 @@ class Shell:
     def platform_type(self) -> PlatformType:
         return self._platform_type
 
-    def get_source_info(self, source: Source, limit: int, order: SearchOrder) -> Iterator[Source]:
+    def get_source_info(self, source: str, *args, **kwargs) -> Source:
         """
         Return info for the specified source or sub sources if the source is not a leaf\n
         :param source: description of the source where from the comments have to be obtained
-        :param limit: limit of the sub-sources to process
-        :param order: sort order of the obtained data
-        :return: Generator of the Source
+        :return: result of the operation, which equals
         """
         pass
 
-    def get_sources_info(self, sources: List[Source], limit: int, order: SearchOrder) -> Iterator[Source]:
+    def get_sources_info(self, sources: Iterable[str], *args, **kwargs) -> Responses:
         """
         Return info for the several specified sources\n
         :param sources: source descriptions list for which the info has to be obtained
-        :param limit: limit of the sources obtained from each source
-        :param order: sort order of the obtained data
-        :return: Generator of the Source
+        :return: results of the
         """
         pass
 
-    def get_sources_info_continuous(
-            self,
-            sources: List[Source],
-            limit: int,
-            order: SearchOrder) -> Iterator[Source]:
+    def get_sources_info_continuous(self, sources: Iterable[str]) -> Responses:
         """
         Return info for the several specified sources and update it continuously\n
         :param sources: source descriptions list for which the info has to be obtained
-        :param limit: limit of the sources obtained from each source
-        :param order: sort order of the obtained data
-        :return: Generator of the Source
+        :return: responses
         """
         pass
 
-    def get_comments(self, source: Source, limit: int, order: SearchOrder) -> Iterator[Comment]:
+    def get_comments(self, source: str, limit: int, order: SearchOrder) -> Iterator[Comment]:
         """
         Return all comments for the specified source\n
         :param source: description of the source where from the comments have to be obtained
@@ -78,9 +69,9 @@ class Shell:
 
     def get_comments_from_several_sources(
             self,
-            sources: List[Source],
+            sources: List[str],
             limit: int,
-            order: SearchOrder) -> Iterator[Comment]:
+            order: SearchOrder) -> Iterator[Response]:
         """
         Return all comments for the several specified sources\n
         :param sources: source descriptions list where from the comments have to be obtained
@@ -92,9 +83,9 @@ class Shell:
 
     def get_comments_from_several_sources_continuous(
             self,
-            sources: List[Source],
+            sources: List[str],
             limit: int,
-            order: SearchOrder) -> Iterator[Source]:
+            order: SearchOrder) -> Response:
         """
         Return all comments for the several specified sources and update it continuously\n
         :param sources: source descriptions list where from the comments have to be obtained
@@ -104,11 +95,11 @@ class Shell:
         """
         pass
 
-    def add_comment(self, source: Source, comment: str) -> Comment:
+    def add_comment(self, source: Source, comment: str) -> Response:
         """
         Add specified comment to the source (it may be video, channel or another comment)\n
         :param source: description of the source where the comment has to be placed
         :param comment: text that has to be added
-        :return: added Comment
+        :return: result of the operation
         """
         pass

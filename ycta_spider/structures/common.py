@@ -10,7 +10,7 @@ from dataclasses import dataclass, fields, field
 import datetime as dt
 from enum import Enum
 from functools import partial
-from typing import List, Any, Dict, Iterable
+from typing import List, Any, Dict, Iterable, Union
 
 
 dklass_kwonly = partial(dataclass, kw_only=True)
@@ -32,40 +32,47 @@ class Response:
     code: ResponseCode
     content: Dict[str, Any] = field(default_factory=lambda: dict())
 
+Responses = Iterable[Response]
+
 
 @dataclass
 class PsqlEntry:
-    _cols = None
+    columns = None
     _types = None
 
-    __add_quotes = lambda value: f"'{value}'"
+    def __str__(self):
+        return "\n".join(["\t" + c.ljust(20) + str(self.__dict__[c]) for c in self.columns])
+
+    __add_quotes_replace_single_quote = lambda s: "'" + s.replace("'", "''") + "'"
+    __add_quotes = lambda v: f"'{v}'"
+
     __psql_mapper = {
-        'str': __add_quotes,
+        'str': __add_quotes_replace_single_quote,
         'dt.datetime': __add_quotes,
         'int': str,
         'float': str,
-        'List[str]': lambda l: '{"' + '", "'.join(l) + '"}'
+        'List[str]': lambda l: '\'{"' + '", "'.join(l) + '"}\''
     }
 
     def to_query_vals(self) -> str:
         return '(' + ', '.join([
             self.__psql_mapper[t](self.__dict__[c])
-            for c, t in zip(self._cols, self._types)
+            for c, t in zip(self.columns, self._types)
         ]) + ')'
 
     @classmethod
     def build(cls):
         """run once for each class you'd want to instantiate"""
-        cls._cols = []
+        cls.columns = []
         cls._types = []
         for f in fields(cls):
-            cls._cols.append(f.name)
+            cls.columns.append(f.name)
             cls._types.append(f.type)
 
     @classmethod
     def inst_from_psql_output(cls, vals: List) -> PsqlEntry:
         """create object from the output of an sql query"""
-        return cls(**dict(zip(cls._cols, vals)))  # noqa: F401
+        return cls(**dict(zip(cls.columns, vals)))  # noqa: F401
 
 
 @dklass_kwonly
@@ -80,11 +87,12 @@ class GradedEntry(TimedEntry):
 
 @dklass_kwonly
 class Source(GradedEntry):
-    type: str
+    type: str = ''
     title: str = ''
 
 
 Source.build()
+Sources = Iterable[Source]
 
 
 @dklass_kwonly
@@ -95,3 +103,5 @@ class Comment(GradedEntry):
 
 Comment.build()
 Comments = Iterable[Comment]
+
+Info = Union[Sources, Comments]

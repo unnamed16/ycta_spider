@@ -14,7 +14,7 @@ from functools import partial
 import pytz
 import requests
 
-from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, YoutubeComment, SearchOrder
+from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, YoutubeComment, SearchOrder, process_top_level_comments, YoutubePrimaryComment, YoutubeSecondaryComment
 from ycta_spider.api.shell import Shell
 from ycta_spider.structures.common import PlatformType, ResponseCode, Source, Response
 from ycta_spider.file_manager.writer import save_config
@@ -82,20 +82,21 @@ class YoutubeShell(Shell):
             source: str = None,
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE,
-            page_token: str = '') -> Iterator[YoutubeComment]:
+            page_token: str = '') -> Iterator[Tuple[YoutubePrimaryComment, List[YoutubeSecondaryComment]]]:
         """
         Return all comments for the specified source\n
         :param source: videoId (11 letters)
         :param limit: will download all the comments if None
         :param order: time (starts with more recent) or relevance
         :param page_token: is needed for recursive upload from a concrete page
-        :return: generator of comments
+        :return: generator of pairs (primary comment, secondary comments)
         """
+        max_results = self.__COMMENTS_BATCH_SIZE if limit is None else min(self.__COMMENTS_BATCH_SIZE, limit)
         query = self.__query_builder(func='commentThreads', pars={
             'part': 'snippet,replies,id',
             'videoId': source,
             'key': self.__api_key,
-            'maxResults': self.__COMMENTS_BATCH_SIZE if limit is None else min(self.__COMMENTS_BATCH_SIZE, limit),
+            'maxResults': max_results,
             'order': order.value,
             'pageToken': page_token
         })
@@ -107,25 +108,25 @@ class YoutubeShell(Shell):
             next_page_token = response.json().get('nextPageToken', None)
             if next_page_token is not None:
                 for comment in self.get_comments(
-                        source,
-                        limit=None if limit is None else limit - self.__COMMENTS_BATCH_SIZE,
-                        order=order,
-                        page_token=next_page_token):
+                    source,
+                    limit=None if limit is None else limit - self.__COMMENTS_BATCH_SIZE,
+                    order=order,
+                    page_token=next_page_token):
                     yield comment
 
     @staticmethod
     def __parse_comments(comments_json: Dict) -> Iterator[YoutubeComment]:
         for comment in comments_json['items']:
-            yield YoutubeShell.__parse_parent_comment(comment)
+            yield YoutubeShell.__parse_top_level_comment(comment)
 
     def get_comments_from_several_sources(
             self,
-            sources: List[Tuple[str, str]] = None,
+            sources: List[str] = None,
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[YoutubeComment]:
         """
         Return all comments for the several specified sources\n
-        :param sources: pairs (videoId, )
+        :param sources: video ids
         :param limit: limit of the comments to download from each source
         :param order: sort order of the obtained data
         :return: Generator of the Comments
@@ -141,12 +142,12 @@ class YoutubeShell(Shell):
 
     def get_comments_from_several_sources_continuous(
             self,
-            sources: List[Source] = None,
+            sources: List[str] = None,
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[YoutubeComment]:
         """
         Return all comments for the several specified sources and update it continuously\n
-        :param sources: source descriptions list where from the comments have to be obtained
+        :param sources: list of video ids
         :param limit: limit of the comments to download from each source
         :param order: sort order of the obtained data
         :return: Generator of the Comments
@@ -195,20 +196,8 @@ class YoutubeShell(Shell):
                 time.sleep(time_delay.total_seconds())
 
     @staticmethod
-    def __parse_parent_comment(thread: Dict) -> YoutubeComment:
-        thread_id = thread['id']
-        main_comment = thread['snippet']
-        result = YoutubeShell.__parse_one_comment(
-            main_comment['topLevelComment'],
-            thread_id,
-            is_top_level=True,
-            reply_count=main_comment['totalReplyCount'])
-        if 'replies' in thread:
-            result['replies'] = [
-                YoutubeShell.__parse_one_comment(reply, thread_id)
-                for reply in thread['replies']['comments']
-            ]
-        return result
+    def __parse_top_level_comment(comment: Dict) -> YoutubeComment:
+        return process_top_level_comments(comment)
 
     def add_comment(self, source: str, comment: str) -> Response:
         """
@@ -282,15 +271,15 @@ class YoutubeShell(Shell):
         """
         source_type, source_value = source
         if source_type == 'videoId':
-            response = self.__get_videos_info([source_value])
+            response = self._get_videos_info([source_value])
         elif source_type == 'videoIdList':
             videos_num = len(source_value)
             assert videos_num <= limit, f'the limit is {limit}, video id list has length {videos_num}'
-            response = self.__get_videos_info(source_value)
+            response = self._get_videos_info(source_value)
         elif source_type == 'channelId':
-            response = self.__get_video_ids(YoutubeChannel(channel_id=source_value), limit=limit, order=order)
+            response = self._get_video_ids(YoutubeChannel(channel_id=source_value), limit=limit, order=order)
             if response['code'] == ResponseCode.OK:
-                response = self.__get_videos_info([video_info.idx for video_info in response['result']])
+                response = self._get_videos_info([video_info.idx for video_info in response['result']])
         else:
             raise KeyError(f'unknown source type: {source_type}')
         if response['code'] == ResponseCode.OK:
@@ -349,7 +338,7 @@ class YoutubeShell(Shell):
         print('\r ', end='')
         print('\r', end='')
 
-    def __get_video_ids(
+    def _get_video_ids(
             self,
             channel: YoutubeChannel,
             limit: int = __DEFAULT_INFO_LIMIT,
@@ -380,7 +369,7 @@ class YoutubeShell(Shell):
             if rest_limit > 0:
                 next_page_token = req.json().get('nextPageToken', None)
                 if next_page_token is not None:
-                    next_page = self.__get_video_ids(
+                    next_page = self._get_video_ids(
                         channel,
                         limit=rest_limit,
                         order=order,
@@ -434,7 +423,7 @@ class YoutubeShell(Shell):
         except Exception as e:
             return Response(code=ResponseCode.PARSE_ERROR, content={'message': str(e), 'response.text': response.text})
 
-    def __get_videos_info(self, videos: List[str]) -> Response:
+    def _get_videos_info(self, videos: List[str]) -> Response:
         func = 'videos'
         part = ','.join([
             'statistics',

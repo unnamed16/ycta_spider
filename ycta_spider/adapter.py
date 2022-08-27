@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Union, Iterable
 
 from ycta_spider.file_manager.writer import save_json, save_csv
-from ycta_spider.structures.common import Source, Comments
+from ycta_spider.structures.common import Source, Comments, Sources, Info
 from ycta_spider.db.build import info_senders
 
 
@@ -20,25 +20,25 @@ def print_comments(comments: Comments, manual_control: bool = False) -> None:
     :param manual_control: wait input before obtaining next record if True
     """
     for i, comment in enumerate(comments):
-        print(f'Comment #{i}:\n{json.dumps(comment, indent=4, ensure_ascii=False)}')
+        print(f'Comment #{i}:\n{comment}')
         if manual_control:
             input()
 
 
-def print_info(info: Iterable[Source], manual_control: bool = False) -> None:
+def print_info(sources: Sources, manual_control: bool = False) -> None:
     """
     Print Sources Info to the stdio
-    :param info: Iterable Sources Info
+    :param sources: Iterable Sources Info
     :param manual_control: wait input before obtaining next record if True
     """
-    for i, source_info in enumerate(info):
+    for i, source_info in enumerate(sources):
         print(f'\nSource Info #{i}:\n')
         print('\n'.join(f'\t{key} = {val}' for key, val in source_info.__dict__.items()))
         if manual_control:
             input()
 
 
-def save_comments(comments: Comments, path: Union[str, Path]) -> None:
+def save_comments(comments: Comments, path: str) -> None:
     """
     Save Comments to file (csv or json)
     :param comments: Iterable Comments
@@ -56,32 +56,24 @@ def save_comments(comments: Comments, path: Union[str, Path]) -> None:
                 for comment in comments
             ],
             path=path,
-            headers=('ids', 'text', 'meta', 'likes', 'replies')
+            headers=comments[0]
         )
+    elif path.endswith('.json'):
+        save_json([comment.__dict__ for comment in comments], path)
     else:
-        save_json(list(comments), path)
+        raise AttributeError('path should be either csv or json')
 
 
-def save_info(info: Iterable[Source], path: str) -> None:
+def save_info(sources: Sources, path: str) -> None:
     """
     Save Sources Info to file (csv only)
-    :param info: Iterable Sources Info
+    :param sources: Iterable Sources Info
     :param path: string with the path to an output file
     """
-    info = list(info)  # TODO: this will take additional memory, we can make it much more effective if not use list.
-    data = [
-        source_info.__dict__.values()
-        for source_info in info
-    ]
-    headers = info[0].__dict__.keys() if info else []  # TODO: this may work not proper if there are different headers
-    save_csv(
-        data=data,
-        path=path,
-        headers=headers
-    )
+    save_csv(data=sources, path=path)
 
 
-def send_info(info: Union[Iterable[Source], Comments], path: str) -> None:
+def send_info(info: Info, path: str) -> None:
     """
     Save Sources Info (including comments)
     :param info: Iterable Sources Info
