@@ -19,7 +19,7 @@ class TestAdapter(unittest.TestCase):
 
     @mock.patch('builtins.print')
     def test_print_info(self, _):
-        adapter.print_info([common.Source(idx='a', type='videoId')], manual_control=False)
+        adapter.print_info([common.Source(idx='a')], manual_control=False)
 
     @mock.patch('ycta_spider.file_manager.writer.os.makedirs', new_callable=mock.mock_open)
     @mock.patch('builtins.open', new_callable=mock.mock_open)
@@ -29,7 +29,7 @@ class TestAdapter(unittest.TestCase):
 
     def test_save_info(self):
         path = os.path.join(self.__path, 'test.csv')
-        adapter.save_info([common.Source(idx='a', type='videoId')], path)
+        adapter.save_info([common.Source(idx='a')], path)
         os.remove(path)
 
     @mock.patch('ycta_spider.db.build.info_senders')

@@ -41,7 +41,7 @@ class Shell(ABC):
         """
         pass
 
-    def get_sources_info(self, sources: Iterable[Any], *args, **kwargs) -> Responses:
+    def get_sources_info(self, sources: Iterable[Any], *args, **kwargs) -> Iterable[Any]:
         """
         Return info for the several specified sources\n
         :param sources: source descriptions list for which the info has to be obtained

@@ -12,23 +12,12 @@ from ycta_spider.structures.youtube import process_top_level_comments
 
 class CommonStructuresTestCase(unittest.TestCase):
 
-    def test_source(self):
-        source = common.Source(idx='idx', grade_confidence=-1, title='some', time=dt.datetime(1966, 6, 6, 6, 6))
-        self.assertEqual(source.columns, ['idx', 'time', 'grade', 'grade_confidence', 'type', 'title'])
-        self.assertEqual(source.to_query_vals(), "('idx', '1966-06-06 06:06:00', 0.0, -1, '', 'some')")
-        self.assertEqual(source, common.Source.inst_from_psql_output([
-            source.idx, source.time, source.grade, source.grade_confidence, '', source.title
-        ]))
-
-
     def test_comment(self):
         comment = common.Comment(idx='idx', text='some', access_count=10)
-        self.assertEqual(comment.columns, ['idx', 'time', 'grade', 'grade_confidence', 'text', 'access_count'])
-        self.assertEqual(comment.to_query_vals(), f"('idx', '{comment.time}', 0.0, 0.0, 'some', 10)")
+        self.assertEqual(comment.columns, ['idx', 'time', 'grade', 'grade_confidence', 'access_count', 'text'])
+        self.assertEqual(comment.to_query_vals(), f"('idx', '{comment.time}', 0.0, 0.0, 10, 'some')")
         self.assertEqual(comment, common.Comment.inst_from_psql_output([
-            comment.idx, comment.time, comment.grade, comment.grade_confidence, comment.text, comment.access_count
-        ]))
-
+            comment.idx, comment.time, comment.grade, comment.grade_confidence, comment.access_count, comment.text]))
 
 
 class YoutubeStructuresTestCase(unittest.TestCase):

@@ -45,7 +45,6 @@ class PsqlEntry:
 
     __add_quotes_replace_single_quote = lambda s: "'" + s.replace("'", "''") + "'"
     __add_quotes = lambda v: f"'{v}'"
-
     __psql_mapper = {
         'str': __add_quotes_replace_single_quote,
         'dt.datetime': __add_quotes,

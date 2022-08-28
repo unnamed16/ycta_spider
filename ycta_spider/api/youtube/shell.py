@@ -4,23 +4,20 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-from typing import Callable, Dict, List, Iterator, Tuple, Union
 import json
-from dateutil.parser import isoparse
-from datetime import datetime, timedelta
 import time
-from functools import partial
+from datetime import datetime, timedelta
+from typing import Callable, Dict, List, Iterator, Tuple
 
-import pytz
 import requests
 
-from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, YoutubeComment, SearchOrder,\
-    process_top_level_comments, YoutubePrimaryComment, YoutubeSecondaryComment, YoutubeCommentBundle,\
-    YoutubeSourceDescription, YoutubeComments
 from ycta_spider.api.shell import Shell
-from ycta_spider.structures.common import PlatformType, ResponseCode, Source, Response
-from ycta_spider.file_manager.writer import save_config
 from ycta_spider.file_manager.reader import read_config
+from ycta_spider.file_manager.writer import save_config
+from ycta_spider.structures.common import PlatformType, ResponseCode, Source, Response
+from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, SearchOrder, \
+    process_top_level_comments, YoutubeCommentBundle, \
+    YoutubeSourceDescription, YoutubeComments
 
 
 class YoutubeShell(Shell):
@@ -72,12 +69,11 @@ class YoutubeShell(Shell):
             conf['platforms'][self.platform_type.name]['access_token'] = token
         save_config(config)
 
-    def __query_builder(self, func: str, pars: dict=None) -> str:
+    def __query_builder(self, func: str, pars: dict = None) -> str:
         result = f'{self.__V3_URL}{func}'
         if pars is None or len(pars) == 0:
             return result
         return '?'.join([result, '&'.join([f'{k}={v}' for k, v in pars.items()] + ['key=' + self.__api_key])])
-
 
     def get_comments(
             self,
@@ -109,10 +105,10 @@ class YoutubeShell(Shell):
             next_page_token = response.json().get('nextPageToken', None)
             if next_page_token is not None:
                 for comment in self.get_comments(
-                    source,
-                    limit=None if limit is None else limit - self.__COMMENTS_BATCH_SIZE,
-                    order=order,
-                    page_token=next_page_token):
+                        source,
+                        limit=None if limit is None else limit - self.__COMMENTS_BATCH_SIZE,
+                        order=order,
+                        page_token=next_page_token):
                     yield comment
 
     @staticmethod
@@ -316,8 +312,10 @@ class YoutubeShell(Shell):
             sources = self.__sources
         for i, source in enumerate(sources):
             print(f'\r{i + 1}/{len(sources)}\tDownloading info from {source}', end='')
-            for source_info in self.get_source_info(source, limit=limit, order=order):
-                yield source_info
+            source_info = self.get_source_info(source, limit=limit, order=order)
+            if source_info.code == ResponseCode.OK:
+                for source_info in source_info.content['result']:
+                    yield source_info
         print('\r ', end='')
         print('\r', end='')
 
@@ -372,8 +370,10 @@ class YoutubeShell(Shell):
         text = req.text
         loc = text.find('externalId')
         if loc == -1:
-            return Response(code=ResponseCode.ERROR, content={'message': 'failed to find key identifier (externalId) on ' + suffix})
-        return Response(code=ResponseCode.OK, content={'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]})
+            return Response(code=ResponseCode.ERROR,
+                            content={'message': 'failed to find key identifier (externalId) on ' + suffix})
+        return Response(code=ResponseCode.OK,
+                        content={'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]})
 
     @staticmethod
     def __parse(response: requests.Response, parser: Callable) -> Response:
