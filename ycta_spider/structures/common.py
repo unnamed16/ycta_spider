@@ -51,7 +51,7 @@ class PsqlEntry:
         'dt.datetime': __add_quotes,
         'int': str,
         'float': str,
-        'List[str]': lambda l: '\'{"' + '", "'.join(l) + '"}\''
+        'List[str]': lambda l: '\'{"' + ('", "'.join(l)).replace("'", "''") + '"}\''
     }
 
     def to_query_vals(self) -> str:

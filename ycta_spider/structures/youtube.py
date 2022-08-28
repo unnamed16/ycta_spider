@@ -7,6 +7,7 @@ __maintainer__ = 'pvp'
 __date__ = '2022/05/30'
 
 import datetime as dt
+import shlex
 from dataclasses import field
 from enum import Enum
 from typing import List, Tuple, Union, Iterable
@@ -14,6 +15,7 @@ from dateutil.parser import isoparse
 from isodate import parse_duration
 
 from ycta_spider.structures.common import Source, Comment, dklass_kwonly
+
 
 @dklass_kwonly
 class YoutubeComment(Comment):
@@ -24,6 +26,10 @@ class YoutubeComment(Comment):
     like_count: int
     published_at: dt.datetime
     updated_at: dt.datetime
+
+
+YoutubeComments = Iterable[YoutubeComment]
+
 
 def _comment_to_relevant_dict(comment: dict) -> dict:
     snippet = comment['snippet']
@@ -57,7 +63,9 @@ class YoutubePrimaryComment(YoutubeComment):
             inst.children_idx_suff = []
         return inst  # noqa
 
+
 YoutubePrimaryComment.build()
+
 
 @dklass_kwonly
 class YoutubeSecondaryComment(YoutubeComment):
@@ -98,37 +106,69 @@ class YoutubeVideo(Source):
     topic_categories: List[str]
 
     @classmethod
-    def from_get_response(cls, response: dict) -> YoutubeVideo:
-        assert len(response['items']) == 1
-        item = response['items'][0]
+    def from_get_response(cls, item: dict) -> YoutubeVideo:
         snippet = item['snippet']
         stats = item['statistics']
-        kwargs = dict(
+        return YoutubeVideo(**dict(
             idx=item['id'],
             etag=item['etag'],
-            published_at=snippet['publishedAt'],
+            published_at=isoparse(snippet['publishedAt']),
             channel_id=snippet['channelId'],
             title=snippet['title'],
             description=snippet['description'],
             duration=parse_duration(item['contentDetails']['duration']).total_seconds(),
-            view_count=stats['viewCount'],
-            like_count=stats['likeCount'],
-            comment_count=stats['commentCount'],
+            view_count=stats.get('viewCount', 0),
+            like_count=stats.get('likeCount', 0),
+            comment_count=stats.get('commentCount', 0),
             category_id=snippet['categoryId'],
-            tags=snippet['tags'],
-            topic_categories=item['topicDetails']['topicCategories'],
-        )
-        return cls(**kwargs)  # noqa
+            tags=snippet.get('tags', []),
+            topic_categories=item['topicDetails'].get('topicCategories', []),
+        ))
+
 
 YoutubeVideo.build()
 
 
+
+@dklass_kwonly
 class YoutubeChannel(Source):
-    channel_id: str
-    name: str = None
-    is_anti_put: int = None
-    suffix: str = None
-    desc: str = None
+    etag: str
+    title: str
+    description: str
+    published_at: dt.datetime
+    view_count: int
+    subscriber_count: int
+    video_count: int
+    keywords: List[str]
+    country: str
+    topic_categories: List[str] = field(default_factory=lambda: [])
+
+    @classmethod
+    def from_get_response(cls, item: dict) -> YoutubeChannel:
+        snippet = item['snippet']
+        statistics = item['statistics']
+        branding = item['brandingSettings']['channel']
+        return YoutubeChannel(**dict(
+            idx=item['id'],
+            etag=item['etag'],
+            title=snippet['title'],
+            description=snippet['description'],
+            published_at=isoparse(snippet['publishedAt']),
+            view_count=int(statistics.get('viewCount', 0)),
+            subscriber_count=int(statistics.get('subscriberCount', 0)),
+            video_count=int(statistics.get('videoCount', 0)),
+            keywords=list(set(shlex.split(branding.get('keywords', '')))),
+            country=branding.get('country', ''),
+            topic_categories=item['topicDetails'].get('topicCategories', [])
+        ))
+
+    @classmethod
+    def from_get_response_multiple(cls, response: dict) -> List[YoutubeChannel]:
+        return list(map(cls.from_get_response, response['items']))
+
+
+YoutubeChannel.build()
+
 
 class SearchOrder(Enum):
     DATE = 'date'
@@ -141,3 +181,4 @@ class SearchOrder(Enum):
 
 
 YoutubeInfo = Iterable[Union[YoutubeVideo, YoutubeChannel, YoutubePrimaryComment, YoutubeSecondaryComment]]
+YoutubeSourceDescription = Tuple[str, Union[str, List[str]]]

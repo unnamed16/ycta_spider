@@ -5,7 +5,7 @@ __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
 from abc import ABC
-from typing import Iterator, List, Iterable
+from typing import Iterator, List, Iterable, Any
 
 from ycta_spider.file_manager.reader import read_config
 from ycta_spider.structures.common import PlatformType, Comment, Source, Response, Responses
@@ -33,7 +33,7 @@ class Shell(ABC):
     def platform_type(self) -> PlatformType:
         return self._platform_type
 
-    def get_source_info(self, source: str, *args, **kwargs) -> Source:
+    def get_source_info(self, source: str, *args, **kwargs) -> Response:
         """
         Return info for the specified source or sub sources if the source is not a leaf\n
         :param source: description of the source where from the comments have to be obtained
@@ -41,7 +41,7 @@ class Shell(ABC):
         """
         pass
 
-    def get_sources_info(self, sources: Iterable[str], *args, **kwargs) -> Responses:
+    def get_sources_info(self, sources: Iterable[Any], *args, **kwargs) -> Responses:
         """
         Return info for the several specified sources\n
         :param sources: source descriptions list for which the info has to be obtained
@@ -49,7 +49,7 @@ class Shell(ABC):
         """
         pass
 
-    def get_sources_info_continuous(self, sources: Iterable[str]) -> Responses:
+    def get_sources_info_continuous(self, sources: Iterable[Any]) -> Responses:
         """
         Return info for the several specified sources and update it continuously\n
         :param sources: source descriptions list for which the info has to be obtained
@@ -57,7 +57,7 @@ class Shell(ABC):
         """
         pass
 
-    def get_comments(self, source: str, limit: int, order: SearchOrder) -> Iterator[Comment]:
+    def get_comments(self, source: Any, limit: int, order: SearchOrder) -> Iterator[Comment]:
         """
         Return all comments for the specified source\n
         :param source: description of the source where from the comments have to be obtained
@@ -69,9 +69,9 @@ class Shell(ABC):
 
     def get_comments_from_several_sources(
             self,
-            sources: List[str],
+            sources: List[Any],
             limit: int,
-            order: SearchOrder) -> Iterator[Response]:
+            order: SearchOrder) -> Responses:
         """
         Return all comments for the several specified sources\n
         :param sources: source descriptions list where from the comments have to be obtained
@@ -83,7 +83,7 @@ class Shell(ABC):
 
     def get_comments_from_several_sources_continuous(
             self,
-            sources: List[str],
+            sources: List[Any],
             limit: int,
             order: SearchOrder) -> Response:
         """

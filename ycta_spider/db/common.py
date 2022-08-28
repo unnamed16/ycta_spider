@@ -5,7 +5,7 @@ __maintainer__ = 'pvp'
 __date__ = '2022/07/17'
 
 from abc import abstractmethod
-from typing import List
+from typing import List, Optional, Any
 
 import psycopg2
 from psycopg2.extensions import connection as PsqlConnection
@@ -56,7 +56,7 @@ class PsqlTable:
         self.__connector.close()
         self.__connector = None
 
-    def run_query(self, query: str):
+    def run_query(self, query: str) -> Optional[List[Any]]:
         """:param query: PostgreSQL query"""
         assert self.__connector is not None, "initialize using with context"
         with self.__connector.cursor() as cur:

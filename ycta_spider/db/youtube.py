@@ -147,24 +147,23 @@ class YoutubeChannelTable(YoutubeTable):
     _table_creation_query = f"""
             create table if not exists {_name}
         (
-            idx                 char(26)                 not null
-                constraint primary_comments_pkey
+            idx                 char(24)                 not null
+                constraint {_name}_pkey
                     primary key,
             time                timestamp with time zone not null,
             grade               real                     not null,
             grade_confidence    real                     not null,
-            text                varchar(10000)           not null,
             access_count        integer                  not null,
-            text_original       varchar(10000)           not null,
             etag                char(27)                 not null,
-            author_display_name text[]                   not null,
-            author_channel_id   char(24)                 not null,
-            like_count          integer                  not null,
-            published_at        timestamp with time zone not null,
-            updated_at          timestamp with time zone not null,
-            video_id            char(11)                 not null,
-            total_reply_count   integer                  not null,
-            children_idx_suff   char(22)[]               not null
+            published_at        timestamp with time zone not null,            
+            title               varchar(100)             not null,
+            description         varchar(5000)            not null,
+            view_count          bigint                   not null,
+            subscriber_count    bigint                   not null,
+            video_count         bigint                   not null,
+            keywords            text[][]                 not null,
+            country             varchar(3)               not null,
+            topic_categories    text[][]                 not null
         );
 
         comment on table {_name} is 'meta-data on channels';

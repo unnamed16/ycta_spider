@@ -4,7 +4,7 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/28'
 
-from typing import Callable, Dict, List, Iterator, Tuple
+from typing import Callable, Dict, List, Iterator, Tuple, Union
 import json
 from dateutil.parser import isoparse
 from datetime import datetime, timedelta
@@ -14,7 +14,9 @@ from functools import partial
 import pytz
 import requests
 
-from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, YoutubeComment, SearchOrder, process_top_level_comments, YoutubePrimaryComment, YoutubeSecondaryComment
+from ycta_spider.structures.youtube import YoutubeChannel, YoutubeVideo, YoutubeComment, SearchOrder,\
+    process_top_level_comments, YoutubePrimaryComment, YoutubeSecondaryComment, YoutubeCommentBundle,\
+    YoutubeSourceDescription, YoutubeComments
 from ycta_spider.api.shell import Shell
 from ycta_spider.structures.common import PlatformType, ResponseCode, Source, Response
 from ycta_spider.file_manager.writer import save_config
@@ -74,15 +76,15 @@ class YoutubeShell(Shell):
         result = f'{self.__V3_URL}{func}'
         if pars is None or len(pars) == 0:
             return result
-        return '?'.join([result, '&'.join([f'{k}={v}' for k, v in pars.items()])])
+        return '?'.join([result, '&'.join([f'{k}={v}' for k, v in pars.items()] + ['key=' + self.__api_key])])
 
 
     def get_comments(
             self,
-            source: str = None,
+            source: str,
             limit: int = None,
             order: SearchOrder = SearchOrder.RELEVANCE,
-            page_token: str = '') -> Iterator[Tuple[YoutubePrimaryComment, List[YoutubeSecondaryComment]]]:
+            page_token: str = '') -> Iterator[YoutubeCommentBundle]:
         """
         Return all comments for the specified source\n
         :param source: videoId (11 letters)
@@ -95,7 +97,6 @@ class YoutubeShell(Shell):
         query = self.__query_builder(func='commentThreads', pars={
             'part': 'snippet,replies,id',
             'videoId': source,
-            'key': self.__api_key,
             'maxResults': max_results,
             'order': order.value,
             'pageToken': page_token
@@ -115,7 +116,7 @@ class YoutubeShell(Shell):
                     yield comment
 
     @staticmethod
-    def __parse_comments(comments_json: Dict) -> Iterator[YoutubeComment]:
+    def __parse_comments(comments_json: Dict) -> YoutubeComments:
         for comment in comments_json['items']:
             yield YoutubeShell.__parse_top_level_comment(comment)
 
@@ -123,7 +124,7 @@ class YoutubeShell(Shell):
             self,
             sources: List[str] = None,
             limit: int = None,
-            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[YoutubeComment]:
+            order: SearchOrder = SearchOrder.RELEVANCE) -> YoutubeComments:
         """
         Return all comments for the several specified sources\n
         :param sources: video ids
@@ -135,7 +136,7 @@ class YoutubeShell(Shell):
             sources = self.__sources
         for i, source in enumerate(sources):
             print(f'\r{i + 1}/{len(sources)}\tDownloading comments from {source}', end='')
-            for comment in self.get_comments(source, limit, order=order):
+            for comment in self.get_comments(source, limit, order=order):  # noqa
                 yield comment
         print('\r ', end='')
         print('\r', end='')
@@ -144,7 +145,7 @@ class YoutubeShell(Shell):
             self,
             sources: List[str] = None,
             limit: int = None,
-            order: SearchOrder = SearchOrder.RELEVANCE) -> Iterator[YoutubeComment]:
+            order: SearchOrder = SearchOrder.RELEVANCE) -> YoutubeComments:
         """
         Return all comments for the several specified sources and update it continuously\n
         :param sources: list of video ids
@@ -159,6 +160,7 @@ class YoutubeShell(Shell):
         local_sources_medium = []
         local_sources_rare = []
         while True:
+            # TODO: a lot of copy-paste here
             current_time = datetime.now()
             if current_time > last_update_time_fresh + timedelta(seconds=self.__COMMENTS_CONTINUOUS_DELAY_FRESH):
                 local_sources_fresh = self.get_sources_info_from_db(
@@ -196,7 +198,7 @@ class YoutubeShell(Shell):
                 time.sleep(time_delay.total_seconds())
 
     @staticmethod
-    def __parse_top_level_comment(comment: Dict) -> YoutubeComment:
+    def __parse_top_level_comment(comment: Dict) -> YoutubeCommentBundle:
         return process_top_level_comments(comment)
 
     def add_comment(self, source: str, comment: str) -> Response:
@@ -205,7 +207,7 @@ class YoutubeShell(Shell):
         :param comment: text of the message
         :return: response
         """
-        query = self.__query_builder(func='commentThreads', pars={'part': 'snippet', 'videoId': source, 'key': self.__api_key})
+        query = self.__query_builder(func='commentThreads', pars={'part': 'snippet', 'videoId': source})
         headers = dict(self.common_headers)
         headers['Authorization'] = f'Bearer {self.__access_token}'
         data = {
@@ -220,75 +222,56 @@ class YoutubeShell(Shell):
         }
         comments = requests.post(query, headers=headers, data=data)
         # TODO: make proper parser for the response
-        return YoutubeShell.__parse(comments, YoutubeShell.__parse_one_comment)
+        return Response(code=ResponseCode.ERROR, content={'message': 'add comment parser not implemented'})
 
-    @staticmethod
-    def __parse_one_comment(
-            comment_json: Dict,
-            thread_id: str,
-            is_top_level: bool = False,
-            reply_count: int = 0) -> YoutubeComment:
-        _comment_id = comment_json['id']
-        snippet = comment_json['snippet']
-        _video_id = snippet['videoId']
-        _all_ids = {
-            'video_id': _video_id,
-            'thread_id': thread_id,
-            'comment_id': _comment_id
-        }
-        _text = snippet['textDisplay']
-        _likes = snippet['likeCount']
-        _published = snippet['publishedAt']
-        _parent = None if is_top_level else snippet['parentId']
-        _author_id = snippet.get('authorYoutubeChannelId', {'value': ''})['value']
-        _meta_info = {
-            'is_top_level': is_top_level,
-            'reply_count': reply_count,
-            'publish_date': _published,
-            'parent_comment_id': _parent,
-            'author_id': _author_id,
-            'author_name': snippet['authorDisplayName']
-        }
-        return {
-            'ids': _all_ids,
-            'text': _text,
-            'meta': _meta_info,
-            'likes': _likes
-        }
+    def get_channels_info(self, ids: List[str]) -> Response:
+        part = ','.join([
+            'brandingSettings',
+            'contentDetails',
+            'contentOwnerDetails',
+            'id',
+            'localizations',
+            'snippet',
+            'statistics',
+            'status',
+            'topicDetails'
+        ])
+        url = self.__query_builder(func='channels', pars={'part': part, 'id': ','.join(ids)})
+        req = requests.get(url)
+        return self.__parse(req, YoutubeChannel.from_get_response_multiple)
 
     def get_source_info(
             self,
-            source: Source,
+            source: YoutubeSourceDescription,
             limit: int = __DEFAULT_INFO_LIMIT,
-            order: SearchOrder = SearchOrder.DATE) -> Iterator[YoutubeVideo]:
+            order: SearchOrder = SearchOrder.DATE) -> Response:
         """
-        Return info for the specified source or sub sources if the source is not a leaf\n
-        :param source: ('videoId', 'MyYoutubeVideoId'), ('videoIdList', [list of 'video ids'])
-        or ('channelId', 'MyYoutubeChannelId')
+        Return video info for a specified source
+
+        :param source: ('videoId', 'video id'), ('videoIdList', [list of video ids]) or ('channelId', 'channel id')
         :param limit: limit of the sub-sources to process
         :param order: sort order of the obtained data (date, rating, title), used only for channel source
-        :return: Generator of the YoutubeVideo
+        :return:
         """
         source_type, source_value = source
         if source_type == 'videoId':
-            response = self._get_videos_info([source_value])
+            return self._get_videos_info([source_value])
         elif source_type == 'videoIdList':
             videos_num = len(source_value)
             assert videos_num <= limit, f'the limit is {limit}, video id list has length {videos_num}'
-            response = self._get_videos_info(source_value)
+            return self._get_videos_info(source_value)
         elif source_type == 'channelId':
-            response = self._get_video_ids(YoutubeChannel(channel_id=source_value), limit=limit, order=order)
-            if response['code'] == ResponseCode.OK:
-                response = self._get_videos_info([video_info.idx for video_info in response['result']])
+            response = self._get_video_ids(channel_id=source_value, limit=limit, order=order)
+            if response.code == ResponseCode.OK:
+                return self._get_videos_info(response.content['result'])
+            else:
+                return response
         else:
-            raise KeyError(f'unknown source type: {source_type}')
-        if response['code'] == ResponseCode.OK:
-            for source_info in response['result']:
-                yield source_info
+            raise KeyError('unknown source type: ' + source_type)
 
     def get_sources_info_continuous(
             self,
-            sources: List[Source] = None,
+            sources: List[YoutubeSourceDescription] = None,
             limit: int = __DEFAULT_INFO_LIMIT,
             order: SearchOrder = SearchOrder.DATE) -> Iterator[YoutubeVideo]:
         """
@@ -319,7 +302,7 @@ class YoutubeShell(Shell):
 
     def get_sources_info(
             self,
-            sources: List[Source] = None,
+            sources: List[YoutubeSourceDescription] = None,
             limit: int = __DEFAULT_INFO_LIMIT,
             order: SearchOrder = SearchOrder.DATE) -> Iterator[YoutubeVideo]:
         """
@@ -340,62 +323,45 @@ class YoutubeShell(Shell):
 
     def _get_video_ids(
             self,
-            channel: YoutubeChannel,
+            channel_id: str,
             limit: int = __DEFAULT_INFO_LIMIT,
             order: SearchOrder = SearchOrder.DATE,
             page_token: str = '') -> Response:
-        part = 'snippet'
-        content_type = 'video'
-        func = 'search'
-        if channel.channel_id is None:
-            channel.channel_id = self.get_channel_id(channel.name, channel.suffix)['result']
-        channel_id = channel.channel_id
-        url = str(
-            f'{self.__V3_URL}{func}?'
-            f'part={part}&'
-            f'channelId={channel_id}&'
-            f'maxResults={min(limit, self.__INFO_BATCH_SIZE)}&'
-            f'order={order.value}&'
-            f'type={content_type}&'
-            f'key={self.__api_key}&'
-            f'pageToken={page_token}'
-        )
+        url = self.__query_builder(func='search', pars={
+            'part': 'snippet',
+            'channelId': channel_id,
+            'maxResults': min(limit, self.__INFO_BATCH_SIZE),
+            'order': order.value,
+            'type': 'video',
+            'pageToken': page_token
+        })
         req = requests.get(url)
-        result = YoutubeShell.__parse(req, partial(YoutubeShell.__parse_video_ids, channel_id=channel.channel_id))
-        if result['code'] == ResponseCode.ERROR:
-            result['message'] = f'failed to find videos on {channel_id}'
-        elif result['code'] == ResponseCode.OK:
+        result = YoutubeShell.__parse(req, YoutubeShell.__parse_video_ids)
+        if result.code == ResponseCode.ERROR:
+            result.content['message'] = 'failed to find videos on ' + channel_id
+        elif result.code == ResponseCode.OK:
             rest_limit = limit - self.__INFO_BATCH_SIZE
             if rest_limit > 0:
                 next_page_token = req.json().get('nextPageToken', None)
                 if next_page_token is not None:
                     next_page = self._get_video_ids(
-                        channel,
+                        channel_id=channel_id,
                         limit=rest_limit,
                         order=order,
                         page_token=next_page_token
                     )
-                    if next_page['code'] == ResponseCode.OK:
-                        result['result'].extend(next_page['result'])
+                    if next_page.code == ResponseCode.OK:
+                        result.content['result'].extend(next_page.content['result'])
         return result
 
     @staticmethod
-    def __parse_video_ids(response_json: Dict, channel_id: str) -> List[YoutubeVideo]:
-        return [
-            YoutubeVideo(
-                idx=json_elem['id']['videoId'],
-                time=datetime.now(pytz.utc),
-                publish_time=isoparse(json_elem['snippet']['publishedAt']),
-                title=json_elem['snippet']['title'],
-                description=json_elem['snippet']['description'],
-                channel_id=channel_id
-            )
-            for json_elem in response_json['items']
-        ]
+    def __parse_video_ids(response_json: Dict) -> List[YoutubeVideo]:
+        return [json_elem['id']['videoId'] for json_elem in response_json['items']]
 
     @classmethod
-    def get_channel_id(cls, name: str, suffix: str) -> Response:
-        url = f'https://www.youtube.com/{suffix}/{name}'
+    def get_channel_id(cls, suffix: str) -> Response:
+        """:param suffix: part after youtube.com/ (e.g., user/... or c/...)"""
+        url = 'https://www.youtube.com/' + suffix
         req = requests.get(url, 'html.parser')
         if not req.ok:
             return Response(code=ResponseCode.ERROR, content={
@@ -406,7 +372,7 @@ class YoutubeShell(Shell):
         text = req.text
         loc = text.find('externalId')
         if loc == -1:
-            return Response(code=ResponseCode.ERROR, content={'message': f'failed to find key identifier (externalId) on {suffix}/{name}'})
+            return Response(code=ResponseCode.ERROR, content={'message': 'failed to find key identifier (externalId) on ' + suffix})
         return Response(code=ResponseCode.OK, content={'result': text[loc + cls.__CHID_OFFSET_FROM: loc + cls.__CHID_OFFSET_TO]})
 
     @staticmethod
@@ -424,13 +390,13 @@ class YoutubeShell(Shell):
             return Response(code=ResponseCode.PARSE_ERROR, content={'message': str(e), 'response.text': response.text})
 
     def _get_videos_info(self, videos: List[str]) -> Response:
-        func = 'videos'
         part = ','.join([
             'statistics',
             'contentDetails',
             'id',
             'liveStreamingDetails',
-            'localizations,player',
+            'localizations',
+            'player',
             'recordingDetails',
             'snippet',
             'status',
@@ -439,42 +405,17 @@ class YoutubeShell(Shell):
         result = None
         for i in range(0, len(videos), self.__DEFAULT_INFO_LIMIT):
             ids = ','.join(videos[i:min(len(videos), i + self.__DEFAULT_INFO_LIMIT)])
-            url = f'{self.__V3_URL}{func}?part={part}&id={ids}&key={self.__api_key}'
+            url = self.__query_builder(func='videos', pars={'part': part, 'id': ids})
             req = requests.get(url, headers=self.common_headers)
             batch_result = self.__parse(req, self.__parse_video_info)
-            if batch_result['code'] != ResponseCode.OK:
+            if batch_result.code != ResponseCode.OK:
                 return batch_result
             if result is None:
                 result = batch_result
             else:
-                result['result'].extend(batch_result['result'])
+                result.content['result'].extend(batch_result.content['result'])
         return result
 
     @staticmethod
-    def __parse_single_video_info(info: Dict) -> YoutubeVideo:
-        snippet = info.get('snippet', dict())
-        stats = info.get('statistics', dict())
-
-        def __stats_int_or_none(key):
-            return int(stats[key]) if key in stats else None
-
-        return YoutubeVideo(
-            idx=info.get('id', None),
-            time=datetime.now(pytz.utc),
-            publish_time=isoparse(snippet['publishedAt']) if 'publishedAt' in snippet else None,
-            channel_id=snippet.get('channelId', None),
-            title=snippet.get('title', None),
-            description=snippet.get('description', None),
-            channel_title=snippet.get('channelTitle', None),
-            tags=snippet.get('tags', list()),
-            category_id=int(snippet['categoryId']) if 'categoryId' in snippet else None,
-            duration=info.get('contentDetails', dict()).get('duration', None),
-            view_count=__stats_int_or_none('viewCount'),
-            like_count=__stats_int_or_none('likeCount'),
-            comment_count=__stats_int_or_none('commentCount'),
-            topic_categories=info.get('topicDetails', dict()).get('topicCategories', None)
-        )
-
-    @staticmethod
     def __parse_video_info(request_json: Dict) -> List[YoutubeVideo]:
-        return list(map(YoutubeShell.__parse_single_video_info, request_json['items']))
+        return list(map(YoutubeVideo.from_get_response, request_json['items']))

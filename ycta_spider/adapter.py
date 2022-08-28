@@ -76,8 +76,10 @@ def save_info(sources: Sources, path: str) -> None:
 def send_info(info: Info, path: str) -> None:
     """
     Save Sources Info (including comments)
+
     :param info: Iterable Sources Info
-    :param path: '::'-separated triple (storage type, platform, table name)
+    :param path: '::'-separated triple (storage type, platform, table name), e.g.
+        db::youtube::video_info
     """
     storage_type, platform, table = path.split('::')
     if storage_type == 'db':
