@@ -12,6 +12,7 @@ from enum import Enum
 from functools import partial
 from typing import List, Any, Dict, Iterable, Union
 
+import pytz
 
 dklass_kwonly = partial(dataclass, kw_only=True)
 
@@ -37,7 +38,7 @@ Responses = Iterable[Response]
 
 @dataclass
 class PsqlEntry:
-    columns = None
+    _columns = None
     _types = None
 
     def __str__(self):
@@ -60,13 +61,16 @@ class PsqlEntry:
         ]) + ')'
 
     @classmethod
-    def build(cls):
+    @property
+    def columns(self) -> List[str]:
         """run once for each class you'd want to instantiate"""
-        cls.columns = []
-        cls._types = []
-        for f in fields(cls):
-            cls.columns.append(f.name)
-            cls._types.append(f.type)
+        if self._columns is None:
+            self._columns = []
+            self._types = []
+            for f in fields(self):
+                self._columns.append(f.name)
+                self._types.append(f.type)
+        return self._columns
 
     @classmethod
     def inst_from_psql_output(cls, vals: List) -> PsqlEntry:
@@ -77,7 +81,7 @@ class PsqlEntry:
 @dklass_kwonly
 class TimedEntry(PsqlEntry):
     idx: str
-    time: dt.datetime = field(default_factory=lambda: dt.datetime.now())
+    time: dt.datetime = field(default_factory=lambda: dt.datetime.now(pytz.utc))
 
 @dklass_kwonly
 class GradedEntry(TimedEntry):
@@ -98,7 +102,6 @@ class Comment(GradedEntry):
     text: str
 
 
-Comment.build()
 Comments = Iterable[Comment]
 
 Info = Union[Sources, Comments]

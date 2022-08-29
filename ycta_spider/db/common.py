@@ -9,6 +9,7 @@ from typing import List, Optional, Any
 
 import psycopg2
 from psycopg2.extensions import connection as PsqlConnection
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from ycta_spider.file_manager.reader import read_config
 
@@ -37,18 +38,49 @@ class PsqlTable:
     def _name(self) -> list:
         pass
 
+    _psql_config = read_config()['psql']
+    _db_creation_verified = False
+    _table_creation_verified = False
+
+    @classmethod
+    def _verify_table_creation(cls):
+        if cls._table_creation_verified:
+            return
+        with psycopg2.connect(database=cls._db, **cls._psql_config) as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_catalog='{cls._db}' AND table_schema='public' AND table_name='{cls._name}');")
+                conn.commit()
+                table_exists = cur.fetchall()[0][0]
+        cls._table_creation_verified = True
+        if not table_exists:
+            cls.create_table()
+    @classmethod
+    def _verify_db_creation(cls):
+        if cls._db_creation_verified:
+            return
+        try:
+            psycopg2.connect(database=cls._db, **cls._psql_config).close()
+        except psycopg2.OperationalError:
+            with psycopg2.connect(**cls()._psql_config) as conn:
+                conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+                with conn.cursor() as cur:
+                    cur.execute(f'create database "{cls._db}"')
+        cls._db_creation_verified = True
+
 
     def __init__(self, config=None):
-        if config is None:
-            config = read_config()
-        self.__psql_config = config['psql']
+        if config is not None:
+            self._psql_config = config['psql']
         self.__connector = None
+        self._verify_db_creation()
+        self._verify_table_creation()
+
 
     def create_connector(self) -> PsqlConnection:
-        return psycopg2.connect(database=self._db, **self.__psql_config)
+        return psycopg2.connect(database=self._db, **self._psql_config)
 
     def __enter__(self):
-        self.__connector = psycopg2.connect(database=self._db, **self.__psql_config)
+        self.__connector = psycopg2.connect(database=self._db, **self._psql_config)
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):

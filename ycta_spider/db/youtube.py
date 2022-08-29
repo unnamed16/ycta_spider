@@ -23,7 +23,7 @@ class YoutubeTable(PsqlTable, ABC):
 
     @property
     def _cols(self) -> List[str]:
-        return self._youtube_structure.columns
+        return self._youtube_structure.columns  # noqa
 
     @classmethod
     def add_info(cls, info: YoutubeInfo) -> Response:

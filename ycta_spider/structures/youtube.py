@@ -11,6 +11,7 @@ import shlex
 from dataclasses import field
 from enum import Enum
 from typing import List, Tuple, Union, Iterable
+
 from dateutil.parser import isoparse
 from isodate import parse_duration
 
@@ -40,7 +41,7 @@ def _comment_to_relevant_dict(comment: dict) -> dict:
         'text_original': snippet['textOriginal'],
         'author_display_name': snippet['authorDisplayName'],
         'author_channel_id': snippet['authorChannelId']['value'],
-        'like_count': snippet['likeCount'],
+        'like_count': int(snippet['likeCount']),
         'published_at': isoparse(snippet['publishedAt']),
         'updated_at': isoparse(snippet['updatedAt'])
     }
@@ -64,9 +65,6 @@ class YoutubePrimaryComment(YoutubeComment):
         return inst  # noqa
 
 
-YoutubePrimaryComment.build()
-
-
 @dklass_kwonly
 class YoutubeSecondaryComment(YoutubeComment):
     @property
@@ -74,7 +72,6 @@ class YoutubeSecondaryComment(YoutubeComment):
         return self.idx.split('.')[0]
 
 
-YoutubeSecondaryComment.build()
 YoutubeCommentBundle = Tuple[YoutubePrimaryComment, List[YoutubeSecondaryComment]]
 
 
@@ -84,7 +81,7 @@ def process_top_level_comments(comment: dict) -> YoutubeCommentBundle:
     snippet = comment['snippet']
     primary_comment = YoutubePrimaryComment(
         video_id=snippet['videoId'],
-        total_reply_count=snippet['totalReplyCount'],
+        total_reply_count=int(snippet['totalReplyCount']),
         children_idx_suff=[c.idx.split('.')[1] for c in secondary_comments],
         **_comment_to_relevant_dict(snippet['topLevelComment']))
     return primary_comment, secondary_comments
@@ -117,17 +114,13 @@ class YoutubeVideo(Source):
             title=snippet['title'],
             description=snippet['description'],
             duration=parse_duration(item['contentDetails']['duration']).total_seconds(),
-            view_count=stats.get('viewCount', 0),
-            like_count=stats.get('likeCount', 0),
-            comment_count=stats.get('commentCount', 0),
-            category_id=snippet['categoryId'],
+            view_count=int(stats.get('viewCount', 0)),
+            like_count=int(stats.get('likeCount', 0)),
+            comment_count=int(stats.get('commentCount', 0)),
+            category_id=int(snippet['categoryId']),
             tags=snippet.get('tags', []),
             topic_categories=item['topicDetails'].get('topicCategories', []),
         ))
-
-
-YoutubeVideo.build()
-
 
 
 @dklass_kwonly
@@ -165,9 +158,6 @@ class YoutubeChannel(Source):
     @classmethod
     def from_get_response_multiple(cls, response: dict) -> List[YoutubeChannel]:
         return list(map(cls.from_get_response, response['items']))
-
-
-YoutubeChannel.build()
 
 
 class SearchOrder(Enum):
