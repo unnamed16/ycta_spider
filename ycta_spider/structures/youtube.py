@@ -24,6 +24,7 @@ class YoutubeComment(Comment):
     etag: str
     author_display_name: str
     author_channel_id: str
+    author_profile_image_url: str
     like_count: int
     published_at: dt.datetime
     updated_at: dt.datetime
@@ -41,6 +42,7 @@ def _comment_to_relevant_dict(comment: dict) -> dict:
         'text_original': snippet['textOriginal'],
         'author_display_name': snippet['authorDisplayName'],
         'author_channel_id': snippet['authorChannelId']['value'],
+        'author_profile_image_url': snippet['authorProfileImageUrl'],
         'like_count': int(snippet['likeCount']),
         'published_at': isoparse(snippet['publishedAt']),
         'updated_at': isoparse(snippet['updatedAt'])

@@ -4,13 +4,9 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/06/01'
 
-import json
-from pathlib import Path
-from typing import Union, Iterable
-
-from ycta_spider.file_manager.writer import save_json, save_csv
-from ycta_spider.structures.common import Source, Comments, Sources, Info
 from ycta_spider.db.build import info_senders
+from ycta_spider.file_manager.writer import save_json, save_csv
+from ycta_spider.structures.common import Comments, Sources, Info
 
 
 def print_comments(comments: Comments, manual_control: bool = False) -> None:

@@ -4,17 +4,24 @@ __credits__ = ['pvp']
 __maintainer__ = 'pvp'
 __date__ = '2022/07/17'
 
-from typing import Iterable, List, Type
 from abc import ABC, abstractmethod
 from functools import wraps
+from typing import Iterable, List, Type
 
-from ycta_spider.structures.common import Response, ResponseCode, GradedEntry
-from ycta_spider.structures.youtube import YoutubeVideo, YoutubeChannel, YoutubePrimaryComment, YoutubeSecondaryComment, YoutubeInfo
+from ycta_spider.api.shell import PlatformType
 from ycta_spider.db.common import PsqlTable
+from ycta_spider.structures.common import Response, ResponseCode, GradedEntry
+from ycta_spider.structures.youtube import YoutubeVideo, YoutubeChannel, YoutubePrimaryComment, \
+    YoutubeSecondaryComment, YoutubeInfo
 
 
 class YoutubeTable(PsqlTable, ABC):
     _db = 'youtube'
+
+    @property
+    @abstractmethod
+    def _youtube_structure(self) -> Type[GradedEntry]:
+        pass
 
     @property
     @abstractmethod
@@ -33,13 +40,13 @@ class YoutubeTable(PsqlTable, ABC):
         """
         with cls() as conn:
             query = (
-                f"INSERT INTO {cls._name} ("
-                + ", ".join(conn._cols)  # noqa
-                + ") VALUES "
-                + ", ".join([entry.to_query_vals() for entry in info])
-                + " ON CONFLICT (idx) DO UPDATE SET "
-                + ", ".join([f'{key} = excluded.{key}' for key in conn._cols])  # noqa
-                + ';'
+                    f"INSERT INTO {cls._name} ("
+                    + ", ".join(conn._cols)  # noqa
+                    + ") VALUES "
+                    + ", ".join([entry.to_query_vals() for entry in info])
+                    + " ON CONFLICT (idx) DO UPDATE SET "
+                    + ", ".join([f'{key} = excluded.{key}' for key in conn._cols])  # noqa
+                    + ';'
             )
             try:
                 conn.run_query(query)
@@ -48,13 +55,26 @@ class YoutubeTable(PsqlTable, ABC):
                 return Response(code=ResponseCode.ERROR, content={'message': str(e), 'psql_query': query})
 
     @classmethod
-    def get_info_by_idxs(cls, idxs: Iterable[str]) -> Response:
+    def get_info_by_idxs_with_failure(cls, idxs: Iterable[str]) -> YoutubeInfo:
         """
-        :param idxs: list if indexes
-        :return: result of the operation, list with info if successful
+        :param idxs: list of indexes
+        :return: list with info, if successful, fail hard otherwise
         """
         with cls() as conn:
-            query = f"SELECT " + ", ".join(conn._cols) + f" FROM {cls._name} WHERE idx IN ('" + "', '".join(idxs) +  "');"
+            query = f"SELECT " + ", ".join(conn._cols) + f" FROM {cls._name} WHERE idx IN ('" + "', '".join(
+                idxs) + "');"
+            return [cls._youtube_structure.inst_from_psql_output(vals)  # noqa
+                    for vals in conn.run_query(query)]
+
+    @classmethod
+    def get_info_by_idxs(cls, idxs: Iterable[str]) -> Response:
+        """
+        :param idxs: list of indexes
+        :return: response with info in case of success, or cause of failure
+        """
+        with cls() as conn:
+            query = f"SELECT " + ", ".join(conn._cols) + f" FROM {cls._name} WHERE idx IN ('" + "', '".join(
+                idxs) + "');"
             try:
                 return Response(code=ResponseCode.OK, content={'result': [
                     cls._youtube_structure.inst_from_psql_output(vals)  # noqa
@@ -62,7 +82,6 @@ class YoutubeTable(PsqlTable, ABC):
                 ]})
             except Exception as e:
                 return Response(code=ResponseCode.ERROR, content={'message': str(e), 'psql_query': query})
-
 
 
 def _comments_creation_query_common(table: str, idx_len: int) -> str:
@@ -81,6 +100,7 @@ def _comments_creation_query_common(table: str, idx_len: int) -> str:
             etag                char(27)                 not null,
             author_display_name varchar(100)             not null,
             author_channel_id   char(24)                 not null,
+            author_profile_image_url  varchar(200),
             like_count          integer                  not null,
             published_at        timestamp with time zone not null,
             updated_at          timestamp with time zone not null
@@ -171,7 +191,6 @@ class YoutubeChannelTable(YoutubeTable):
     _youtube_structure = YoutubeChannel
 
 
-
 __TABLE_STR_TO_CLASS = {
     'video_info': YoutubeVideoTable,
     'channel_info': YoutubeChannelTable,
@@ -180,7 +199,7 @@ __TABLE_STR_TO_CLASS = {
 }
 
 
-def info_exch_error_msg(fun):
+def __info_exch_error_msg(fun):
     @wraps(fun)
     def with_try(arg, table: str):
         try:
@@ -188,10 +207,11 @@ def info_exch_error_msg(fun):
         except KeyError:
             error_msg = f'table can be ' + ', '.join([str(k) for k in __TABLE_STR_TO_CLASS.keys()])
             return Response(code=ResponseCode.ERROR, content={'message': error_msg})
+
     return with_try
 
 
-@info_exch_error_msg
+@__info_exch_error_msg
 def send_info(info: YoutubeInfo, table: str) -> Response:
     """store youtube-related data in the DB
 
@@ -201,7 +221,8 @@ def send_info(info: YoutubeInfo, table: str) -> Response:
     """
     return __TABLE_STR_TO_CLASS[table].add_info(info)
 
-@info_exch_error_msg
+
+@__info_exch_error_msg
 def get_info(idxs: Iterable[str], table: str) -> Response:
     """try to store youtube-related data in the DB
 
@@ -210,3 +231,34 @@ def get_info(idxs: Iterable[str], table: str) -> Response:
     :returns: result of the operation
     """
     return __TABLE_STR_TO_CLASS[table].get_info_by_idxs(idxs)
+
+
+def load_primary_comment_key_data(comment_id: str) -> dict:
+    """
+    load the data sufficient for displaying a primary comment on the frontend.
+    it is expected that the
+
+    :param comment_id: string ID of the comment
+    :returns: dictionary with key fields, if the primary comment and video info are already stored in the DB
+    """
+    comments = list(YoutubePrimaryCommentTable.get_info_by_idxs_with_failure([comment_id]))
+    assert len(comments) == 1, f'comment with id {comment_id} was not found in the DB'
+    comment = comments[0]
+
+    video_id = comment.video_id
+    videos = list(YoutubeVideoTable.get_info_by_idxs_with_failure([video_id]))
+    assert len(videos) == 1, f'video with id {video_id} was not found in the DB'
+    video = videos[0]
+    return {
+        'platform': PlatformType.YOUTUBE.value,
+        'commentId': comment_id,
+        'sourceId': video_id,
+        'sourceInfo': video.title,
+        'authorName': comment.author_display_name,
+        'authorSrc': comment.author_profile_image_url,
+        'text': comment.text,
+        'date': comment.published_at.date(),
+        'replies': comment.total_reply_count,
+        'likes': comment.like_count,
+        'sentiment': comment.grade,
+    }
