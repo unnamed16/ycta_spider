@@ -130,3 +130,6 @@ dmypy.json
 .pyre/
 /notebooks/
 config.json
+*.lock
+
+*.ipynb

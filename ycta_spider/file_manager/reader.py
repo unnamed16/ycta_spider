@@ -11,12 +11,17 @@ from pathlib import Path
 from typing import Any, AnyStr, List, Iterator, Tuple, Union, Set
 
 
-def read_config() -> Any:
+ROOT_FOLDER = Path(__file__).parent.parent.resolve()
+CONFIG_PATH = os.path.join(ROOT_FOLDER, 'config.json')
+
+
+
+def read_config() -> dict:
     """
     Read the config file from the project's root\n
     :return: data from config.json specified for the trader project
     """
-    return read_json(os.path.join(Path(__file__).parent.parent.resolve(), 'config.json'))
+    return read_json(CONFIG_PATH)
 
 
 def read_json(path: Union[str, Path]) -> Any:

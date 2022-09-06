@@ -2,3 +2,6 @@ requests
 python-dateutil
 pandas
 psycopg2
+pytz
+fasteners
+isodate

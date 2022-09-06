@@ -4,50 +4,15 @@ __credits__ = ['kuyaki']
 __maintainer__ = 'kuyaki'
 __date__ = '2022/05/27'
 
-from enum import Enum
-from typing import Tuple, Dict, Union, Any, Iterator, List
+from abc import ABC
+from typing import Iterator, List, Iterable, Any
 
 from ycta_spider.file_manager.reader import read_config
-from ycta_spider.structures.common import SourceInfo
+from ycta_spider.structures.common import PlatformType, Comment, Source, Response, Responses
+from ycta_spider.structures.youtube import SearchOrder
 
 
-class PlatformType(Enum):
-    VK = 'VK'
-    YOUTUBE = 'YOUTUBE'
-    TELEGRAM = 'TELEGRAM'
-
-
-class ResponseCode(Enum):
-    OK = 'OK'
-    ERROR = 'ERROR'
-    PARSE_ERROR = 'PARSE ERROR'
-    UNKNOWN = 'UNKNOWN'
-    TOO_FREQUENT = 'TOO FREQUENT'
-
-
-class SearchOrder(Enum):
-    DATE = 'date'
-    TIME = 'time'
-    RATING = 'rating'
-    RELEVANCE = 'relevance'
-    TITLE = 'title'
-    VIDEO_COUNT = 'videoCount'
-    VIEW_COUNT = 'viewCount'
-
-
-Source = Tuple[str, Any]  # TODO: Make it a datastructure
-NumLikes = int
-VideoId = str
-ThreadId = str
-CommentId = str
-MetaInfo = Dict[str, Union[bool, None, CommentId, int, str]]
-Ids = Tuple[VideoId, ThreadId, CommentId]
-Comment = Dict[str, Union[Source, CommentId, str, MetaInfo, NumLikes, List]]
-Comments = Iterator[Comment]
-Response = Dict[str, Any]
-
-
-class Shell:
+class Shell(ABC):
     __INFO_CONTINUOUS_DELAY = 900    # seconds
     __COMMENTS_CONTINUOUS_DELAY_FRESH = 60    # every minute
     __COMMENTS_CONTINUOUS_DELAY_MEDIUM = 900  # every 15 minutes
@@ -62,47 +27,37 @@ class Shell:
             'Content-Type': 'application/json'
         }
         self.config = read_config()
-        self.__platform_type = None
+        self._platform_type = None
 
     @property
     def platform_type(self) -> PlatformType:
-        return self.__platform_type
+        return self._platform_type
 
-    def get_source_info(self, source: Source, limit: int, order: SearchOrder) -> Iterator[SourceInfo]:
+    def get_source_info(self, source: str, *args, **kwargs) -> Response:
         """
         Return info for the specified source or sub sources if the source is not a leaf\n
         :param source: description of the source where from the comments have to be obtained
-        :param limit: limit of the sub-sources to process
-        :param order: sort order of the obtained data
-        :return: Generator of the SourceInfo
+        :return: result of the operation, which equals
         """
         pass
 
-    def get_sources_info(self, sources: List[Source], limit: int, order: SearchOrder) -> Iterator[SourceInfo]:
+    def get_sources_info(self, sources: Iterable[Any], *args, **kwargs) -> Iterable[Any]:
         """
         Return info for the several specified sources\n
         :param sources: source descriptions list for which the info has to be obtained
-        :param limit: limit of the sources obtained from each source
-        :param order: sort order of the obtained data
-        :return: Generator of the SourceInfo
+        :return: results of the
         """
         pass
 
-    def get_sources_info_continuous(
-            self,
-            sources: List[Source],
-            limit: int,
-            order: SearchOrder) -> Iterator[SourceInfo]:
+    def get_sources_info_continuous(self, sources: Iterable[Any]) -> Responses:
         """
         Return info for the several specified sources and update it continuously\n
         :param sources: source descriptions list for which the info has to be obtained
-        :param limit: limit of the sources obtained from each source
-        :param order: sort order of the obtained data
-        :return: Generator of the SourceInfo
+        :return: responses
         """
         pass
 
-    def get_comments(self, source: Source, limit: int, order: SearchOrder) -> Iterator[Comment]:
+    def get_comments(self, source: Any, limit: int, order: SearchOrder) -> Iterator[Comment]:
         """
         Return all comments for the specified source\n
         :param source: description of the source where from the comments have to be obtained
@@ -114,9 +69,9 @@ class Shell:
 
     def get_comments_from_several_sources(
             self,
-            sources: List[Source],
+            sources: List[Any],
             limit: int,
-            order: SearchOrder) -> Iterator[Comment]:
+            order: SearchOrder) -> Responses:
         """
         Return all comments for the several specified sources\n
         :param sources: source descriptions list where from the comments have to be obtained
@@ -128,9 +83,9 @@ class Shell:
 
     def get_comments_from_several_sources_continuous(
             self,
-            sources: List[Source],
+            sources: List[Any],
             limit: int,
-            order: SearchOrder) -> Iterator[SourceInfo]:
+            order: SearchOrder) -> Response:
         """
         Return all comments for the several specified sources and update it continuously\n
         :param sources: source descriptions list where from the comments have to be obtained
@@ -140,11 +95,11 @@ class Shell:
         """
         pass
 
-    def add_comment(self, source: Source, comment: str) -> Comment:
+    def add_comment(self, source: Source, comment: str) -> Response:
         """
         Add specified comment to the source (it may be video, channel or another comment)\n
         :param source: description of the source where the comment has to be placed
         :param comment: text that has to be added
-        :return: added Comment
+        :return: result of the operation
         """
         pass
